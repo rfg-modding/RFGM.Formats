@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Nanoforge.Math;
+namespace Rfg.Formats.Math;
 
 public class Ray(Vector3 start, Vector3 end)
 {

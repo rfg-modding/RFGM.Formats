@@ -1,8 +1,7 @@
 using System.Numerics;
 
-namespace Nanoforge.Math;
+namespace Rfg.Formats.Math;
 
-//TODO: Move this to the file formats project/package once that's created (or some shared package it depends on). The zone file format class and some mesh classes will need this too.
 public class BoundingBox(Vector3 min, Vector3 max)
 {
     public Vector3 Min = min;
