@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Rfg.Formats.Math;
+namespace RFGM.Formats.Math;
 
 public class Ray(Vector3 start, Vector3 end)
 {

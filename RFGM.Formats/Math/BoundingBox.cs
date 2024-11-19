@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace Rfg.Formats.Math;
+namespace RFGM.Formats.Math;
 
 public class BoundingBox(Vector3 min, Vector3 max)
 {

@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rfg.Formats", "Rfg.Formats\Rfg.Formats.csproj", "{C8F3DBCF-D90B-4D37-BBA9-13E5947A5A0E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFGM.Formats", "RFGM.Formats\RFGM.Formats.csproj", "{C8F3DBCF-D90B-4D37-BBA9-13E5947A5A0E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
