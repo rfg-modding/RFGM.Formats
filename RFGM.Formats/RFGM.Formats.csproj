@@ -6,12 +6,16 @@
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Version>1.1.1</Version>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="Hexa.NET.DirectXTex" Version="2.0.3" />
       <PackageReference Include="KaitaiStruct.Runtime.CSharp" Version="0.10.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
       <PackageReference Include="SharpZipLib" Version="1.4.2" />
+      <PackageReference Include="Silk.NET.DXGI" Version="2.22.0" />
+      <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
     </ItemGroup>
 
 </Project>
