@@ -1,37 +1,39 @@
 ﻿using System.Text;
-using System.Text.Json.Serialization;
+using System.Xml.Serialization;
 
-namespace RFGM.Formats.Localization;
-public class LocalizationEntry
+namespace RFGM.Formats.Localization
 {
-    [JsonInclude]
-    public string Identifier { get; internal set; } = string.Empty;
-
-    [JsonInclude]
-    public uint Hash { get; internal set; }
-
-    [JsonIgnore]
-    public uint Offset { get; internal set; }
-
-    [JsonIgnore]
-    public uint Length { get; internal set; }
-
-    [JsonInclude]
-    public string String { get; internal set; } = string.Empty;
-
-    public LocalizationEntry() { }
-
-    public LocalizationEntry(BinaryReader reader)
+    public class LocalizationEntry
     {
-        Hash = reader.ReadUInt32();
-        Offset = reader.ReadUInt32();
-        Length = reader.ReadUInt32();
-    }
+        [XmlElement("Identifier")]
+        public string Identifier { get; set; } = string.Empty;
 
-    public void LoadString(BinaryReader reader)
-    {
-        reader.BaseStream.Seek(Offset, SeekOrigin.Begin);
-        byte[] stringBytes = reader.ReadBytes((int)Length);
-        String = Encoding.Unicode.GetString(stringBytes).TrimEnd('\0');
+        [XmlElement("Hash")]
+        public uint Hash { get; set; }
+
+        [XmlIgnore]
+        public uint Offset { get; set; }
+
+        [XmlIgnore]
+        public uint Length { get; set; }
+
+        [XmlElement("String")]
+        public string String { get; set; } = string.Empty;
+
+        public LocalizationEntry() { }
+
+        public LocalizationEntry(BinaryReader reader)
+        {
+            Hash = reader.ReadUInt32();
+            Offset = reader.ReadUInt32();
+            Length = reader.ReadUInt32();
+        }
+
+        public void LoadString(BinaryReader reader)
+        {
+            reader.BaseStream.Seek(Offset, SeekOrigin.Begin);
+            byte[] stringBytes = reader.ReadBytes((int)Length);
+            String = Encoding.Unicode.GetString(stringBytes).TrimEnd('\0');
+        }
     }
 }

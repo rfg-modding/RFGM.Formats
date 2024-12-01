@@ -1,148 +1,163 @@
 ﻿using System.Text;
 using System.Text.Encodings.Web;
-using System.Text.Json;
+using System.Xml;
+using System.Xml.Linq;
 
-namespace RFGM.Formats.Localization;
-public class LocalizationFile
+namespace RFGM.Formats.Localization
 {
-    private const uint ExpectedSignature = 2823585651;
-    private const uint ExpectedVersion = 3;
-
-    // Header
-    public uint Signature { get; private set; }
-    public uint Version { get; private set; }
-    public uint StringCount { get; private set; }
-
-    public List<LocalizationEntry> Entries { get; private set; } = new List<LocalizationEntry>();
-
-    public void Read(BinaryReader reader, string xtblPath)
+    public class LocalizationFile
     {
-        ValidateHeader(reader);
+        private const uint ExpectedSignature = 2823585651;
+        private const uint ExpectedVersion = 3;
 
-        if (!string.IsNullOrEmpty(xtblPath))
-        {
-            LocalizationScraper.GetIdentifiers(xtblPath);
-        }
+        // Header
+        public uint Signature { get; private set; }
+        public uint Version { get; private set; }
+        public uint StringCount { get; private set; }
 
-        for (int i = 0; i < StringCount; i++)
+        public List<LocalizationEntry> Entries { get; private set; } = new List<LocalizationEntry>();
+
+        public void Read(BinaryReader reader, string xtblPath)
         {
-            var entry = new LocalizationEntry(reader);
-            if (LocalizationScraper.StringIdentifiers.TryGetValue(entry.Hash, out string? identifier))
+            ValidateHeader(reader);
+
+            if (!string.IsNullOrEmpty(xtblPath))
             {
-                entry.Identifier = identifier;
+                LocalizationScraper.GetIdentifiers(xtblPath);
             }
-            Entries.Add(entry);
-        }
 
-        foreach (var entry in Entries)
-        {
-            entry.LoadString(reader);
-        }
-    }
-
-    public static void Write(string outputPath, List<LocalizationEntry> entries)
-    {
-        using var reader = new BinaryWriter(File.Open(outputPath, FileMode.Create));
-        var localizationFile = new LocalizationFile
-        {
-            Signature = ExpectedSignature,
-            Version = ExpectedVersion,
-            StringCount = (uint)entries.Count,
-            Entries = entries
-        };
-
-        reader.Write(localizationFile.Signature);
-        reader.Write(localizationFile.Version);
-        reader.Write(localizationFile.StringCount);
-
-        uint offset = (uint)(12 + entries.Count * 12);
-        foreach (var entry in entries)
-        {
-            if (!string.IsNullOrEmpty(entry.Identifier))
+            for (int i = 0; i < StringCount; i++)
             {
-                uint computedHash = LocalizationScraper.HashVolitionCRCAlt(entry.Identifier);
-                if (entry.Hash != computedHash)
+                var entry = new LocalizationEntry(reader);
+                if (LocalizationScraper.StringIdentifiers.TryGetValue(entry.Hash, out string? identifier))
                 {
-                    entry.Hash = computedHash;
+                    entry.Identifier = identifier;
                 }
+                Entries.Add(entry);
             }
 
-            entry.Offset = offset;
-            entry.Length = (uint)Encoding.Unicode.GetByteCount(entry.String + "\0");
-            offset += entry.Length;
+            foreach (var entry in Entries)
+            {
+                entry.LoadString(reader);
+            }
         }
 
-        foreach (var entry in entries)
+        public static void Write(string outputPath, List<LocalizationEntry> entries)
         {
-            reader.Write(entry.Hash);
-            reader.Write(entry.Offset);
-            reader.Write(entry.Length);
+            using var reader = new BinaryWriter(File.Open(outputPath, FileMode.Create, FileAccess.Write));
+            var localizationFile = new LocalizationFile
+            {
+                Signature = ExpectedSignature,
+                Version = ExpectedVersion,
+                StringCount = (uint)entries.Count,
+                Entries = entries
+            };
+
+            reader.Write(localizationFile.Signature);
+            reader.Write(localizationFile.Version);
+            reader.Write(localizationFile.StringCount);
+
+            uint offset = (uint)(12 + entries.Count * 12);
+            foreach (var entry in entries)
+            {
+                if (!string.IsNullOrEmpty(entry.Identifier))
+                {
+                    uint computedHash = LocalizationScraper.HashVolitionCRCAlt(entry.Identifier);
+                    if (entry.Hash != computedHash)
+                    {
+                        entry.Hash = computedHash;
+                    }
+                }
+
+                entry.Offset = offset;
+                entry.Length = (uint)Encoding.Unicode.GetByteCount(entry.String + "\0");
+                offset += entry.Length;
+            }
+
+            foreach (var entry in entries)
+            {
+                reader.Write(entry.Hash);
+                reader.Write(entry.Offset);
+                reader.Write(entry.Length);
+            }
+
+            foreach (var entry in entries)
+            {
+                var textBytes = Encoding.Unicode.GetBytes(entry.String + "\0");
+                reader.Write(textBytes);
+            }
         }
 
-        foreach (var entry in entries)
+        private void ValidateHeader(BinaryReader reader)
         {
-            var textBytes = Encoding.Unicode.GetBytes(entry.String + "\0");
-            reader.Write(textBytes);
+            Signature = reader.ReadUInt32();
+            Version = reader.ReadUInt32();
+            StringCount = reader.ReadUInt32();
+
+            if (Signature != ExpectedSignature)
+            {
+                throw new FormatException($"Invalid file signature. Expected {ExpectedSignature}, but found {Signature}");
+            }
+
+            if (Version != ExpectedVersion)
+            {
+                throw new FormatException($"Invalid file version. Expected {ExpectedVersion}, but found {Version}");
+            }
         }
-    }
 
-    private void ValidateHeader(BinaryReader reader)
-    {
-        Signature = reader.ReadUInt32();
-        Version = reader.ReadUInt32();
-        StringCount = reader.ReadUInt32();
-
-        if (Signature != ExpectedSignature)
+        public void ConvertToXml(string outputPath)
         {
-            throw new FormatException($"Invalid file signature. Expected {ExpectedSignature}, but found {Signature}");
+            if (Entries == null || Entries.Count == 0)
+            {
+                throw new InvalidOperationException("Entries cannot be null or empty.");
+            }
+
+            var settings = new XmlWriterSettings
+            {
+                Indent = true,
+                Encoding = Encoding.UTF8,
+                OmitXmlDeclaration = true
+            };
+
+            using var writer = XmlWriter.Create(outputPath, settings);
+
+            writer.WriteStartElement("root");
+
+            foreach (var entry in Entries)
+            {
+                writer.WriteStartElement("Entry");
+                writer.WriteElementString("Identifier", entry.Identifier);
+                writer.WriteElementString("Hash", entry.Hash.ToString());
+                writer.WriteElementString("String", entry.String);
+                writer.WriteEndElement();
+            }
+
+            writer.WriteEndElement();
         }
 
-        if (Version != ExpectedVersion)
+        public static void ConvertFromXml(string xmlPath, string outputPath)
         {
-            throw new FormatException($"Invalid file version. Expected {ExpectedVersion}, but found {Version}");
+            if (string.IsNullOrEmpty(xmlPath) || !File.Exists(xmlPath))
+            {
+                throw new ArgumentException("File path is invalid or the file does not exist.", nameof(xmlPath));
+            }
+
+            var entries = new List<LocalizationEntry>();
+            var document = XDocument.Load(xmlPath);
+
+            foreach (var entryElement in document.Descendants("Entry"))
+            {
+                var entry = new LocalizationEntry
+                {
+                    Identifier = entryElement.Element("Identifier")?.Value ?? string.Empty,
+                    Hash = uint.TryParse(entryElement.Element("Hash")?.Value, out var hash) ? hash : 0,
+                    String = entryElement.Element("String")?.Value ?? string.Empty
+                };
+
+                entries.Add(entry);
+            }
+
+            Write(outputPath, entries);
         }
-    }
-
-    private static readonly JsonSerializerOptions JsonSerializerOptions = new()
-    {
-        WriteIndented = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
-
-    public void ConvertToJson(string inputPath)
-    {
-        if (string.IsNullOrEmpty(inputPath))
-        {
-            throw new ArgumentException("File path cannot be null or empty", nameof(inputPath));
-        }
-
-        if (Entries == null)
-        {
-            throw new InvalidOperationException("Entries cannot be null");
-        }
-
-        string json = JsonSerializer.Serialize(Entries, JsonSerializerOptions);
-
-        try
-        {
-            File.WriteAllText(inputPath, json);
-        }
-        catch (IOException ex)
-        {
-            throw new IOException($"Failed to write JSON to file: {inputPath}", ex);
-        }
-    }
-
-    public static void ConvertFromJson(string jsonPath, string outputPath)
-    {
-        var json = File.ReadAllText(jsonPath);
-        var localizationEntries = JsonSerializer.Deserialize<List<LocalizationEntry>>(json);
-
-        if (localizationEntries == null || localizationEntries.Count == 0)
-        {
-            throw new InvalidOperationException("The JSON file is empty or could not be deserialized.");
-        }
-
-        Write(outputPath, localizationEntries);
     }
 }
