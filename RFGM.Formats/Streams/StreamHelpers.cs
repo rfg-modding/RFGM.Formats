@@ -199,6 +199,7 @@ namespace RFGM.Formats.Streams
         public static bool ReadBoolean(this Stream stream, int length)
         {
             byte[] data = new byte[length];
+            stream.Read(data, 0, length);
             switch (length)
             {
                 case 1: return data[0] != 0;
