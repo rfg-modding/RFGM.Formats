@@ -10,8 +10,8 @@ public struct TextureDesc
 
     public void Read(Stream stream)
     {
-        NameOffset = stream.Read<uint>();
-        NameChecksum = stream.Read<uint>();
-        TextureIndex = stream.Read<uint>();
+        NameOffset = stream.ReadUInt32();
+        NameChecksum = stream.ReadUInt32();
+        TextureIndex = stream.ReadUInt32();
     }
 }

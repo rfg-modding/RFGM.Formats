@@ -12,17 +12,17 @@ public struct MeshTag()
 
     public void Read(Stream stream)
     {
-        NameCrc = stream.Read<uint>();
+        NameCrc = stream.ReadUInt32();
         //TODO: Make sure these are being read in the correct order
-        Rotation[0, 0] = stream.Read<float>();
-        Rotation[1, 0] = stream.Read<float>();
-        Rotation[2, 0] = stream.Read<float>();
-        Rotation[0, 1] = stream.Read<float>();
-        Rotation[1, 1] = stream.Read<float>();
-        Rotation[2, 1] = stream.Read<float>();
-        Rotation[0, 2] = stream.Read<float>();
-        Rotation[1, 2] = stream.Read<float>();
-        Rotation[2, 2] = stream.Read<float>();
-        Translation = stream.Read<Vector3>();
+        Rotation[0, 0] = stream.ReadFloat();
+        Rotation[1, 0] = stream.ReadFloat();
+        Rotation[2, 0] = stream.ReadFloat();
+        Rotation[0, 1] = stream.ReadFloat();
+        Rotation[1, 1] = stream.ReadFloat();
+        Rotation[2, 1] = stream.ReadFloat();
+        Rotation[0, 2] = stream.ReadFloat();
+        Rotation[1, 2] = stream.ReadFloat();
+        Rotation[2, 2] = stream.ReadFloat();
+        Translation = stream.ReadStruct<Vector3>();
     }
 }

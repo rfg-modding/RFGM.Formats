@@ -36,17 +36,17 @@ public class StaticMesh
     public void Read(Stream cpuData)
     {
         Header.Shared.Read(cpuData);
-        Header.NumLods = cpuData.Read<uint>();
+        Header.NumLods = cpuData.ReadUInt32();
         cpuData.Skip(4);
-        Header.LodSubmeshIdOffset = cpuData.Read<int>();
+        Header.LodSubmeshIdOffset = cpuData.ReadInt32();
         cpuData.Skip(4);
-        Header.TagsOffset = cpuData.Read<int>();
+        Header.TagsOffset = cpuData.ReadInt32();
         cpuData.Skip(4);
-        Header.NumTags = cpuData.Read<uint>();
+        Header.NumTags = cpuData.ReadUInt32();
         cpuData.Skip(4);
-        Header.MeshTagOffset = cpuData.Read<uint>();
+        Header.MeshTagOffset = cpuData.ReadUInt32();
         cpuData.Skip(4);
-        Header.CmIndex = cpuData.Read<uint>();
+        Header.CmIndex = cpuData.ReadUInt32();
         cpuData.Skip(4);
         
         if (Header.Shared.Signature != 0xC0FFEE11)
@@ -69,13 +69,13 @@ public class StaticMesh
         cpuData.Seek(Header.Shared.MaterialMapOffset, SeekOrigin.Begin);
         
         //TODO: Determine if any other important data is between this and the material offsets. The null bytes might just be padding.
-        uint materialsOffsetRelative = cpuData.Read<uint>();
-        uint numMaterials = cpuData.Read<uint>();
+        uint materialsOffsetRelative = cpuData.ReadUInt32();
+        uint numMaterials = cpuData.ReadUInt32();
         cpuData.Seek(Header.Shared.MaterialsOffset, SeekOrigin.Begin);
 
         for (int i = 0; i < numMaterials; i++)
         {
-            MaterialOffsets.Add(cpuData.Read<uint>());
+            MaterialOffsets.Add(cpuData.ReadUInt32());
             cpuData.Skip(4);
         }
 
@@ -101,14 +101,14 @@ public class StaticMesh
             foreach (TextureDesc texture in material.Textures)
             {
                 cpuData.Seek(Header.Shared.TextureNamesOffset + texture.NameOffset, SeekOrigin.Begin);
-                TextureNames.Add(cpuData.ReadNullTerminatedString());
+                TextureNames.Add(cpuData.ReadAsciiNullTerminatedString());
             }
         }
 
         cpuData.Seek(Header.LodSubmeshIdOffset, SeekOrigin.Begin);
         for (int i = 0; i < Header.NumLods; i++)
         {
-            LodSubmeshIds.Add(cpuData.Read<int>());
+            LodSubmeshIds.Add(cpuData.ReadInt32());
         }
         
         if (cpuData.Position != Header.TagsOffset)
@@ -116,7 +116,7 @@ public class StaticMesh
             throw new Exception("Unexpected static mesh file structure. Mesh tags not expected location.");
         }
         
-        Header.NumTags = cpuData.Read<uint>();
+        Header.NumTags = cpuData.ReadUInt32();
         for (int i = 0; i < Header.NumTags; i++)
         {
             MeshTag tag = new();

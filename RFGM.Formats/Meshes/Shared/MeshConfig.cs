@@ -38,25 +38,25 @@ public class MeshConfig
     {
         long startPos = stream.Position;
         
-        Version = stream.Read<uint>();
-        VerificationHash = stream.Read<uint>();
-        CpuDataSize = stream.Read<uint>();
-        GpuDataSize = stream.Read<uint>();
-        NumSubmeshes = stream.Read<uint>();
-        SubmeshesOffset = stream.Read<uint>();
+        Version = stream.ReadUInt32();
+        VerificationHash = stream.ReadUInt32();
+        CpuDataSize = stream.ReadUInt32();
+        GpuDataSize = stream.ReadUInt32();
+        NumSubmeshes = stream.ReadUInt32();
+        SubmeshesOffset = stream.ReadUInt32();
         
-        NumVertices = stream.Read<uint>();
-        VertexStride0 = stream.Read<byte>();
-        VertexFormat = (VertexFormat)stream.Read<byte>();
-        NumUvChannels = stream.Read<byte>();
-        VertexStride1 = stream.Read<byte>();
-        VerticesOffset = stream.Read<uint>();
+        NumVertices = stream.ReadUInt32();
+        VertexStride0 = stream.ReadUInt8();
+        VertexFormat = (VertexFormat)stream.ReadUInt8();
+        NumUvChannels = stream.ReadUInt8();
+        VertexStride1 = stream.ReadUInt8();
+        VerticesOffset = stream.ReadUInt32();
         
-        NumIndices = stream.Read<uint>();
-        IndicesOffset = stream.Read<uint>();
-        IndexSize = stream.Read<byte>();
-        Topology = (PrimitiveTopology)stream.Read<byte>();
-        NumRenderBlocks = stream.Read<ushort>();
+        NumIndices = stream.ReadUInt32();
+        IndicesOffset = stream.ReadUInt32();
+        IndexSize = stream.ReadUInt8();
+        Topology = (PrimitiveTopology)stream.ReadUInt8();
+        NumRenderBlocks = stream.ReadUInt16();
 
         stream.AlignRead(16);
         for (int i = 0; i < NumSubmeshes; i++)
@@ -96,7 +96,7 @@ public class MeshConfig
             renderBlockOffset += submesh.NumRenderBlocks;
         }
         
-        uint endVerificationHash = stream.Read<uint>();
+        uint endVerificationHash = stream.ReadUInt32();
         if (VerificationHash != endVerificationHash)
             throw new Exception("MeshConfig begin/end verification hash mismatch");
         if (stream.Position - startPos != CpuDataSize)

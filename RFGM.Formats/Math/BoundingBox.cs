@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace RFGM.Formats.Math;
 
-public class BoundingBox(Vector3 min, Vector3 max)
+public struct BoundingBox(Vector3 min, Vector3 max)
 {
     public Vector3 Min = min;
     public Vector3 Max = max;

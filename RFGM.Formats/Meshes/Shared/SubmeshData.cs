@@ -13,10 +13,10 @@ public struct SubmeshData
 
     public void Read(Stream stream)
     {
-        NumRenderBlocks = stream.Read<uint>();
-        Offset = stream.Read<Vector3>();
-        Bmin = stream.Read<Vector3>();
-        Bmax = stream.Read<Vector3>();
-        RenderBlocksOffset = stream.Read<uint>();
+        NumRenderBlocks = stream.ReadUInt32();
+        Offset = stream.ReadStruct<Vector3>();
+        Bmin = stream.ReadStruct<Vector3>();
+        Bmax = stream.ReadStruct<Vector3>();
+        RenderBlocksOffset = stream.ReadUInt32();
     }
 }

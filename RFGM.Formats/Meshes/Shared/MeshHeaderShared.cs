@@ -20,17 +20,17 @@ public struct MeshHeaderShared
 
     public void Read(Stream stream)
     {
-        Signature = stream.Read<uint>();
-        Version = stream.Read<uint>();
-        MeshOffset = stream.Read<uint>();
+        Signature = stream.ReadUInt32();
+        Version = stream.ReadUInt32();
+        MeshOffset = stream.ReadUInt32();
         stream.Skip(4);
-        MaterialMapOffset = stream.Read<uint>();
+        MaterialMapOffset = stream.ReadUInt32();
         stream.Skip(4);
-        MaterialsOffset = stream.Read<uint>();
+        MaterialsOffset = stream.ReadUInt32();
         stream.Skip(4);
-        NumMaterials = stream.Read<uint>();
+        NumMaterials = stream.ReadUInt32();
         stream.Skip(4);
-        TextureNamesOffset = stream.Read<uint>();
+        TextureNamesOffset = stream.ReadUInt32();
         stream.Skip(4);
     }
 }
