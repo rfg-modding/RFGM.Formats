@@ -1,8 +1,32 @@
-﻿/*
+﻿// Originally based on code from ThomasJepp.SaintsRow:
+/*
  *  ThomasJepp.SaintsRow - Saints Row IV and Gat Out Of Hell tools
  *  Copyright (c) 2013-2016, Thomas Jepp
  *  All rights reserved.
  *  https://github.com/saintsrowmods/ThomasJepp.SaintsRow
+*/
+
+// Enum helpers from Gibbed.IO:
+/* Copyright (c) 2017 Rick (rick 'at' gibbed 'dot' us)
+ * 
+ *  This software is provided 'as-is', without any express or implied
+ *  warranty. In no event will the authors be held liable for any damages
+ *  arising from the use of this software.
+ *  
+ *  Permission is granted to anyone to use this software for any purpose,
+ *  including commercial applications, and to alter it and redistribute it
+ *  freely, subject to the following restrictions:
+ *  
+ *  1. The origin of this software must not be misrepresented; you must not
+ *     claim that you wrote the original software. If you use this software
+ *     in a product, an acknowledgment in the product documentation would
+ *     be appreciated but is not required.
+ * 
+ *  2. Altered source versions must be plainly marked as such, and must not
+ *     be misrepresented as being the original software.
+ * 
+ *  3. This notice may not be removed or altered from any source
+ *     distribution.
 */
 using System.Runtime.InteropServices;
 using System.Text;
@@ -65,6 +89,13 @@ namespace RFGM.Formats.Streams
             return BitConverter.ToInt32(data, 0);
         }
 
+        public static long ReadInt64(this Stream stream)
+        {
+            byte[] data = new byte[8];
+            stream.Read(data, 0, 8);
+            return BitConverter.ToInt64(data, 0);
+        }
+
         public static void WriteInt8(this Stream stream, sbyte value)
         {
             stream.WriteByte((byte)value);
@@ -80,6 +111,12 @@ namespace RFGM.Formats.Streams
         {
             byte[] data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 4);
+        }
+
+        public static void WriteInt64(this Stream stream, long value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+            stream.Write(data, 0, 8);
         }
         #endregion
 
@@ -103,6 +140,12 @@ namespace RFGM.Formats.Streams
             return BitConverter.ToUInt32(data, 0);
         }
 
+        public static ulong ReadUInt64(this Stream stream)
+        {
+            byte[] data = new byte[8];
+            stream.Read(data, 0, 8);
+            return BitConverter.ToUInt64(data, 0);
+        }
         public static void WriteUInt8(this Stream stream, byte value)
         {
             stream.WriteByte(value);
@@ -174,6 +217,35 @@ namespace RFGM.Formats.Streams
         }
         #endregion
 
+        #region Float helpers
+        public static float ReadFloat(this Stream stream)
+        {
+            byte[] data = new byte[4];
+            stream.Read(data, 0, 4);
+            return BitConverter.ToSingle(data, 0);
+        }
+
+        public static void WriteFloat(this Stream stream, float value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+            stream.Write(data, 0, 4);
+        }
+
+        public static double ReadDouble(this Stream stream)
+        {
+            byte[] data = new byte[8];
+            stream.Read(data, 0, 8);
+            return BitConverter.ToDouble(data, 0);
+        }
+
+        public static void WriteDouble(this Stream stream, double value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+            stream.Write(data, 0, 8);
+        }
+
+        #endregion
+
         #region Alignment helpers
         public static void Align(this Stream stream, uint alignment)
         {
@@ -188,27 +260,105 @@ namespace RFGM.Formats.Streams
                 stream.Seek(offset, SeekOrigin.Current);
             }
         }
+
+        public static long AlignRead(this Stream stream, long alignment)
+        {
+            long paddingSize = stream.CalcAlignment(alignment);
+            stream.Seek(paddingSize, SeekOrigin.Current);
+            return paddingSize;
+        }
+
+        public static long AlignWrite(this Stream stream, long alignment)
+        {
+            long paddingSize = stream.CalcAlignment(alignment);
+            for (int i = 0; i < paddingSize; i++)
+            {
+                stream.WriteByte(0);
+            }
+            return paddingSize;
+        }
+
+        public static long CalcAlignment(this Stream stream, long alignment)
+        {
+            return stream.CalcAlignment(stream.Position, alignment);
+        }
+
+        public static long CalcAlignment(this Stream stream, long position, long alignment)
+        {
+            long remainder = position % alignment;
+            long paddingSize = remainder > 0 ? alignment - remainder : 0;
+            return paddingSize;
+        }
+
+        public static void Skip(this Stream stream, long bytesToSkip)
+        {
+            stream.Seek(bytesToSkip, SeekOrigin.Current);
+        }
         #endregion
 
         #region Boolean helpers
         public static bool ReadBoolean(this Stream stream)
         {
-            return stream.ReadBoolean(1);
+            return stream.ReadBoolean8();
         }
 
-        public static bool ReadBoolean(this Stream stream, int length)
+        public static void WriteBoolean(this Stream stream, bool value)
         {
-            byte[] data = new byte[length];
-            stream.Read(data, 0, length);
-            switch (length)
+            stream.WriteBoolean8(value);
+        }
+
+        public static bool ReadBoolean8(this Stream stream)
+        {
+            return stream.ReadUInt8() != 0;
+        }
+
+        public static void WriteBoolean8(this Stream stream, bool value)
+        {
+            stream.WriteUInt8((byte)(value ? 1 : 0));
+        }
+        public static bool ReadBoolean16(this Stream stream)
+        {
+            return stream.ReadUInt16() != 0;
+        }
+        public static void WriteBoolean16(this Stream stream, bool value)
+        {
+            stream.WriteUInt16((ushort)(value ? 1 : 0));
+        }
+
+        public static bool ReadBoolean32(this Stream stream)
+        {
+            return stream.ReadUInt32() != 0;
+        }
+
+        public static void WriteBoolean32(this Stream stream, bool value)
+        {
+            stream.WriteUInt32((uint)(value ? 1 : 0));
+        }
+        #endregion
+
+        #region Byte helpers
+
+        public static byte[] ReadBytes(this Stream stream, int length)
+        {
+            if (length < 0)
             {
-                case 1: return data[0] != 0;
-                case 2: return BitConverter.ToUInt16(data, 0) != 0;
-                case 4: return BitConverter.ToUInt32(data, 0) != 0;
+                throw new ArgumentOutOfRangeException("length");
             }
 
-            throw new NotImplementedException();
+            var data = new byte[length];
+            var read = stream.Read(data, 0, length);
+            if (read != length)
+            {
+                throw new EndOfStreamException();
+            }
+            return data;
         }
+
+        public static void WriteBytes(this Stream stream, byte[] data)
+        {
+            stream.Write(data, 0, data.Length);
+        }
+
         #endregion
 
         #region StreamReader helpers
@@ -220,6 +370,167 @@ namespace RFGM.Formats.Streams
         public static char PeekChar(this StreamReader sr)
         {
             return (char)sr.Peek();
+        }
+        #endregion
+
+        #region Enum helpers
+        private static class EnumTypeCache
+        {
+
+            private static TypeCode TranslateType(Type type)
+            {
+                if (type.IsEnum == true)
+                {
+                    var underlyingType = Enum.GetUnderlyingType(type);
+                    var underlyingTypeCode = Type.GetTypeCode(underlyingType);
+
+                    switch (underlyingTypeCode)
+                    {
+                        case TypeCode.SByte:
+                        case TypeCode.Byte:
+                        case TypeCode.Int16:
+                        case TypeCode.UInt16:
+                        case TypeCode.Int32:
+                        case TypeCode.UInt32:
+                        case TypeCode.Int64:
+                        case TypeCode.UInt64:
+                            {
+                                return underlyingTypeCode;
+                            }
+                    }
+                }
+
+                throw new ArgumentException("unknown enum type", "type");
+            }
+
+            public static TypeCode Get(Type type)
+            {
+                return TranslateType(type);
+            }
+        }
+
+        public static T ReadValueEnum<T>(this Stream stream)
+        {
+            var type = typeof(T);
+
+            object value;
+            switch (EnumTypeCache.Get(type))
+            {
+                case TypeCode.SByte:
+                    {
+                        value = stream.ReadInt8();
+                        break;
+                    }
+
+                case TypeCode.Byte:
+                    {
+                        value = stream.ReadUInt8();
+                        break;
+                    }
+
+                case TypeCode.Int16:
+                    {
+                        value = stream.ReadInt16();
+                        break;
+                    }
+
+                case TypeCode.UInt16:
+                    {
+                        value = stream.ReadUInt16();
+                        break;
+                    }
+
+                case TypeCode.Int32:
+                    {
+                        value = stream.ReadInt32();
+                        break;
+                    }
+
+                case TypeCode.UInt32:
+                    {
+                        value = stream.ReadUInt32();
+                        break;
+                    }
+
+                case TypeCode.Int64:
+                    {
+                        value = stream.ReadInt64();
+                        break;
+                    }
+
+                case TypeCode.UInt64:
+                    {
+                        value = stream.ReadUInt64();
+                        break;
+                    }
+
+                default:
+                    {
+                        throw new NotSupportedException();
+                    }
+            }
+
+            return (T)Enum.ToObject(type, value);
+        }
+
+        public static void WriteValueEnum<T>(this Stream stream, object value)
+        {
+            var type = typeof(T);
+            switch (EnumTypeCache.Get(type))
+            {
+                case TypeCode.SByte:
+                    {
+                        stream.WriteInt8((sbyte)value);
+                        break;
+                    }
+
+                case TypeCode.Byte:
+                    {
+                        stream.WriteUInt8((byte)value);
+                        break;
+                    }
+
+                case TypeCode.Int16:
+                    {
+                        stream.WriteInt16((short)value);
+                        break;
+                    }
+
+                case TypeCode.UInt16:
+                    {
+                        stream.WriteUInt16((ushort)value);
+                        break;
+                    }
+
+                case TypeCode.Int32:
+                    {
+                        stream.WriteInt32((int)value);
+                        break;
+                    }
+
+                case TypeCode.UInt32:
+                    {
+                        stream.WriteUInt32((uint)value);
+                        break;
+                    }
+
+                case TypeCode.Int64:
+                    {
+                        stream.WriteInt64((long)value);
+                        break;
+                    }
+
+                case TypeCode.UInt64:
+                    {
+                        stream.WriteUInt64((ulong)value);
+                        break;
+                    }
+
+                default:
+                    {
+                        throw new NotSupportedException();
+                    }
+            }
         }
         #endregion
     }
