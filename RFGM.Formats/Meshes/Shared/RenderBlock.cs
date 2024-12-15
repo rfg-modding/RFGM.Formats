@@ -13,6 +13,7 @@ public struct RenderBlock
     public void Read(Stream stream)
     {
         MaterialMapIndex = stream.ReadUInt16();
+        stream.Skip(2);
         StartIndex = stream.ReadUInt32();
         NumIndices = stream.ReadUInt32();
         MinIndex = stream.ReadUInt32();

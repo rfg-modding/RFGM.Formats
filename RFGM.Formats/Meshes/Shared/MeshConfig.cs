@@ -65,7 +65,7 @@ public class MeshConfig
             submesh.Read(stream);
             Submeshes.Add(submesh);
         }
-
+        
         uint numRenderBlocks = 0;
         foreach (var submesh in Submeshes)
         {
@@ -94,6 +94,7 @@ public class MeshConfig
             SubmeshData submesh = Submeshes[i];
             submesh.RenderBlocksOffset = renderBlockOffset;
             renderBlockOffset += submesh.NumRenderBlocks;
+            Submeshes[i] = submesh;
         }
         
         uint endVerificationHash = stream.ReadUInt32();
