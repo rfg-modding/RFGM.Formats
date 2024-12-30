@@ -109,14 +109,14 @@ public class ImageConverter(ILogger<ImageConverter> log)
 
         var size = new UIntPtr((uint)ddsFileSize);
         TexMetadata metadata = default;
-        ScratchImage scratchImage = default;
-        DirectXTex.LoadFromDDSMemory((void*) pointer.value, size, DDSFlags.None, ref metadata, ref scratchImage);
+        var scratchImage = DirectXTex.CreateScratchImage();
+        DirectXTex.LoadFromDDSMemory(pointer.value.ToPointer(), (UIntPtr)ddsFileSize, DDSFlags.None, ref metadata, ref scratchImage);
         disposables.Add(new DisposableScratchImage(scratchImage));
         var (_, compressed, _, _) = GetDxFormat(logicalTexture.Format, logicalTexture.Flags);
         if (compressed)
         {
             // block-compressed images can't be converted and have to be decompressed instead
-            ScratchImage newImage = default;
+            var newImage = DirectXTex.CreateScratchImage();
             DirectXTex.Decompress(scratchImage.GetImages(), (int) Format.FormatR8G8B8A8Unorm, ref newImage);
             disposables.Add(new DisposableScratchImage(newImage));
             scratchImage = newImage;
@@ -157,11 +157,9 @@ public class ImageConverter(ILogger<ImageConverter> log)
         //headerFlags |= logicalTexture.MipLevels > 1 ? HeaderFlags.MipmapCount : 0;
         headerFlags |= format.Compressed ? HeaderFlags.LinearSizeCompressed : HeaderFlags.PitchUncompressed;
         var caps = HeaderCaps.Mipmap | HeaderCaps.Texture | HeaderCaps.Complex;
-        UIntPtr rowPitch = UIntPtr.Zero;
-        UIntPtr slicePitch = UIntPtr.Zero;
-        var width = new UIntPtr((uint)logicalTexture.Size.Width);
-        var height = new UIntPtr((uint)logicalTexture.Size.Height);
-        DirectXTex.ComputePitch((int)format.DxFormat, width, height, ref rowPitch, ref slicePitch, CPFlags.None);
+        var rowPitch = UIntPtr.Zero;
+        var slicePitch = UIntPtr.Zero;
+        DirectXTex.ComputePitch((int)format.DxFormat, (UIntPtr)logicalTexture.Size.Width, (UIntPtr)logicalTexture.Size.Height, ref rowPitch, ref slicePitch, CPFlags.None);
         var frameSize = logicalTexture.Size.Width * logicalTexture.Size.Height * 4 / format.CompressionRatio;
         await BinUtils.WriteUint4(ms, 0x7c, token);
         await BinUtils.WriteUint4(ms, (uint)headerFlags, token);
