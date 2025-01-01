@@ -84,7 +84,7 @@ public class MeshConfig
         {
             IndicesOffset = 16;
             uint indicesEnd = IndicesOffset + (NumIndices * IndexSize);
-            VerticesOffset = indicesEnd + (uint)stream.CalcAlignment(indicesEnd, 16);
+            VerticesOffset = indicesEnd + (uint)StreamHelpers.CalcAlignment(indicesEnd, 16);
         }
         
         //Patch render block offsets for easy access later

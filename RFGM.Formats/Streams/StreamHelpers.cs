@@ -280,10 +280,10 @@ namespace RFGM.Formats.Streams
 
         public static long CalcAlignment(this Stream stream, long alignment)
         {
-            return stream.CalcAlignment(stream.Position, alignment);
+            return StreamHelpers.CalcAlignment(stream.Position, alignment);
         }
 
-        public static long CalcAlignment(this Stream stream, long position, long alignment)
+        public static long CalcAlignment(long position, long alignment)
         {
             long remainder = position % alignment;
             long paddingSize = remainder > 0 ? alignment - remainder : 0;
