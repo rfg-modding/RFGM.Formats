@@ -140,7 +140,7 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
                 Position = offset;
                 return Stream.Seek(ViewStart + offset, SeekOrigin.Begin);
             case SeekOrigin.Current:
-                if (0 < Position + offset || Position + offset > Length)
+                if (Position + offset < 0 || Position + offset > Length)
                 {
                     throw new InvalidOperationException($"Out of bounds: offset is {offset}, position is {Position}, origin is {origin}, max length is {Length}");
                 }
