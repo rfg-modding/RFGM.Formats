@@ -533,5 +533,37 @@ namespace RFGM.Formats.Streams
             }
         }
         #endregion
+
+        public static List<string> ReadSizedStringList(this Stream stream, long sizeBytes)
+        {
+            List<string> strings = new();
+            if (sizeBytes < 0)
+                return strings;
+            
+            long startPos = stream.Position;
+            while (stream.Position - startPos < sizeBytes)
+            {
+                strings.Add(stream.ReadAsciiNullTerminatedString());
+
+                //Skip extra null terminators that are sometimes present in these lists in RFG formats
+                while (stream.Position - startPos < sizeBytes)
+                {
+                    if (stream.Peek<char>() == '\0')
+                        stream.Skip(1);
+                    else
+                        break;
+                }
+            }
+            
+            return strings;
+        }
+
+        public static T Peek<T>(this Stream stream) where T : unmanaged
+        {
+            long startPos = stream.Position;
+            T result = stream.ReadStruct<T>();
+            stream.Seek(startPos, SeekOrigin.Begin);
+            return result;
+        }
     }
 }
