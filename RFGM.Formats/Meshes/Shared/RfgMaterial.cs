@@ -1,3 +1,4 @@
+using RFGM.Formats.Hashes;
 using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Meshes.Shared;
@@ -17,6 +18,9 @@ public class RfgMaterial
     public List<TextureDesc> Textures = new();
     public List<uint> ConstantNameChecksums = new();
     public List<MaterialConstant> Constants = new();
+
+    public string Name => HashDictionary.FindOriginString(NameChecksum) ?? "Unknown";
+    public IEnumerable<string> ConstantNames => ConstantNameChecksums.Select(hash => HashDictionary.FindOriginString(hash) ?? "Unknown");
 
     public void Read(Stream stream)
     {
