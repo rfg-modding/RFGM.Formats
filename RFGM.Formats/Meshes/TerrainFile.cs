@@ -1,8 +1,8 @@
 using RFGM.Formats.Meshes.Shared;
+using RFGM.Formats.Meshes.Terrain;
 using RFGM.Formats.Streams;
-using Silk.NET.Core.Native;
 
-namespace RFGM.Formats.Meshes.Terrain;
+namespace RFGM.Formats.Meshes;
 
 public struct TerrainHeader
 {
