@@ -305,7 +305,7 @@ public class TerrainFile
     {
         if (!LoadedCpuFile)
         {
-            throw new Exception("You must call StaticMesh.ReadHeader() before calling StaticMesh.ReadData() on StaticMesh");
+            throw new Exception("You must call TerrainFile.ReadHeader() before calling TerrainFile.ReadData() on TerrainFile");
         }
         if (index < 0 || index > 8)
         {
