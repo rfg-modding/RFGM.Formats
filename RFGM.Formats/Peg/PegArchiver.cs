@@ -4,7 +4,7 @@ using RFGM.Formats.Vpp;
 
 namespace RFGM.Formats.Peg;
 
-public class PegArchiver(ILogger<VppArchiver> log)
+public class PegArchiver(ILogger<PegArchiver> log)
     : IPegArchiver
 {
     public async Task<LogicalTextureArchive> UnpackPeg(PegStreams streams, string name, CancellationToken token)
