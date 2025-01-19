@@ -1,27 +1,28 @@
+using System.IO.Abstractions;
 using System.Security.Cryptography;
-using RFGM.Formats.Peg.Models;
+using RFGM.Formats.Streams;
 
-namespace RFGM.Archiver.Services;
+namespace RFGM.Formats;
 
 public static class Utils
 {
-    public static async Task<string> ComputeHash(FileInfo file)
+    public static async Task<string> ComputeHash(IFileInfo file)
     {
         await using var s = file.OpenRead();
         return await ComputeHash(s);
     }
 
-    public static async Task<string> ComputeHash(PegFiles pegFiles)
+    public static async Task<string> ComputeHash(PairedFiles pairedFiles)
     {
-        var cpuHash = await ComputeHash(pegFiles.Cpu);
-        var gpuHash = await ComputeHash(pegFiles.Gpu);
+        var cpuHash = await ComputeHash(pairedFiles.Cpu);
+        var gpuHash = await ComputeHash(pairedFiles.Gpu);
         return $"{cpuHash}_{gpuHash}";
     }
 
-    public static async Task<string> ComputeHash(PegStreams pegStreams)
+    public static async Task<string> ComputeHash(PairedStreams pairedStreams)
     {
-        var cpuHash = await ComputeHash(pegStreams.Cpu);
-        var gpuHash = await ComputeHash(pegStreams.Gpu);
+        var cpuHash = await ComputeHash(pairedStreams.Cpu);
+        var gpuHash = await ComputeHash(pairedStreams.Gpu);
         return $"{cpuHash}_{gpuHash}";
     }
 
@@ -52,5 +53,16 @@ public static class Utils
         return hash;
     }
 
-
+    /// <summary>
+    /// Get rid of order prefix, when filename is "00001 filename.ext"
+    /// </summary>
+    /// <param name="input"></param>
+    /// <returns></returns>
+    public static string GetNameWithoutNumber(IFileInfo input)
+    {
+        var match = Constants.VppEntryNameFormat.Match(input.Name);
+        return match.Success
+            ? match.Groups["name"].Value
+            : input.Name;
+    }
 }

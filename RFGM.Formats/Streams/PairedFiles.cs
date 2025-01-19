@@ -1,16 +1,18 @@
-namespace RFGM.Formats.Peg.Models;
+using System.IO.Abstractions;
+
+namespace RFGM.Formats.Streams;
 
 /// <summary>
-/// Pair of CPU+GPU files: cpeg_pc+gpeg_pc or cvbm_pc+gvbm_pc
+/// Pair of CPU+GPU files: cpeg_pc+gpeg_pc or other c*+g*
 /// </summary>
 /// <param name="Cpu"></param>
 /// <param name="Gpu"></param>
-public record PegFiles(FileInfo Cpu, FileInfo Gpu)
+public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
 {
     /// <summary>
-    /// Opens a pair of CPU+GPU files from any one of them
+    /// Opens a pair of CPU+GPU files from any one of them. Accounts for unpacked archives where order is prepended to file names
     /// </summary>
-    public static PegFiles? FromExistingFile(FileInfo input)
+    public static PairedFiles? FromExistingFile(IFileInfo input)
     {
         if (!input.Exists)
         {
@@ -24,23 +26,46 @@ public record PegFiles(FileInfo Cpu, FileInfo Gpu)
             return null;
         }
 
-        var cpuFile = new FileInfo(cpu);
-        var gpuFile = new FileInfo(gpu);
-        return new(cpuFile, gpuFile);
+
+        var cpuFile = LocateFile(input.FileSystem, cpu);
+        var gpuFile = LocateFile(input.FileSystem, gpu);
+        if (cpuFile is null || gpuFile is null)
+        {
+            return null;
+        }
+
+        var nameWithoutNumber = Utils.GetNameWithoutNumber(cpuFile);
+
+        return new(cpuFile, gpuFile, nameWithoutNumber);
     }
 
-    public PegStreams OpenRead()
+
+
+    private static IFileInfo? LocateFile(IFileSystem fileSystem, string fullPath)
+    {
+        var f = fileSystem.FileInfo.New(fullPath);
+        if (f.Exists)
+        {
+            return f;
+        }
+
+        var nameWithoutNumber = Utils.GetNameWithoutNumber(f);
+        var fileWithOtherNumber = f.Directory!.EnumerateFiles().FirstOrDefault(x => x.Name.EndsWith(nameWithoutNumber));
+        return fileWithOtherNumber;
+    }
+
+    public PairedStreams OpenRead()
     {
         var c = Cpu.OpenRead();
         var g = Gpu.OpenRead();
-        return new PegStreams(c, g);
+        return new PairedStreams(c, g);
     }
 
-    public PegStreams OpenWrite()
+    public PairedStreams OpenWrite()
     {
         var c = Cpu.OpenWrite();
         var g = Gpu.OpenWrite();
-        return new PegStreams(c, g);
+        return new PairedStreams(c, g);
     }
 
     public string FullName => Cpu.FullName;
@@ -48,9 +73,9 @@ public record PegFiles(FileInfo Cpu, FileInfo Gpu)
     /// <summary>
     /// Works for full and relative filenames
     /// </summary>
-    public static string? GetCpuFileName(string fileName)
+    public static string? GetCpuFileName(string fullPath)
     {
-        var ext = Path.GetExtension(fileName).ToLowerInvariant()[1..];
+        var ext = Path.GetExtension(fullPath).ToLowerInvariant()[1..];
         var cpuExt = ext switch
         {
             "cpeg_pc" => "cpeg_pc",
@@ -61,7 +86,7 @@ public record PegFiles(FileInfo Cpu, FileInfo Gpu)
         };
         return cpuExt is null
             ? null
-            : Path.ChangeExtension(fileName, cpuExt);
+            : Path.ChangeExtension(fullPath, cpuExt);
     }
 
     /// <summary>

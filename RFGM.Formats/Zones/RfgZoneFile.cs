@@ -1,7 +1,4 @@
-using System.Numerics;
-using System.Runtime.CompilerServices;
 using RFGM.Formats.Hashes;
-using RFGM.Formats.Math;
 using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Zones;

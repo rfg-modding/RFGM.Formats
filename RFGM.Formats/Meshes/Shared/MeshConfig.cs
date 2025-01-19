@@ -1,5 +1,4 @@
 using RFGM.Formats.Streams;
-using Silk.NET.Core.Native;
 
 namespace RFGM.Formats.Meshes.Shared;
 

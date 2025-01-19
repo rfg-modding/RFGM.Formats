@@ -1,13 +1,15 @@
 using System.Collections.Immutable;
 using System.Text.RegularExpressions;
 
-namespace RFGM.Archiver.Models;
+namespace RFGM.Formats;
 
-public static class Constatns
+public static class Constants
 {
     public const string DefaultDir = ".unpack";
     public const string DefaultOutputDir = ".pack";
     public const string MetadataFile = ".metadata";
+
+    public static readonly Regex VppEntryNameFormat = new (@"^(?<order>\d+?)\s+(?<name>.*?)$", RegexOptions.Compiled);
 
     /// <summary>
     /// Name format for new textures: "name format mipLevels.png". Example: "my_texture rgba_srgb 5.png"

@@ -1,7 +1,8 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
-using RFGM.Archiver.Models;
+using RFGM.Formats;
+using RFGM.Formats.Peg;
 
 namespace RFGM.Archiver.Args;
 
@@ -9,7 +10,7 @@ public class Unpack : Command
 {
     private readonly Argument<string> archiveArg = new("archive", "any supported archive to unpack, or a folder, globs allowed");
     private readonly Argument<string> filesArg = new("filter", () => "*", "files inside archive to extract, globs allowed. lookup is not recursive!");
-    private readonly Argument<string> outputArg = new("output", () => Constatns.DefaultDir, "output path");
+    private readonly Argument<string> outputArg = new("output", () => Constants.DefaultDir, "output path");
 
     private readonly Option<bool> xmlFormat = new([
             "-x",
@@ -21,13 +22,13 @@ public class Unpack : Command
             "-r",
             "--recursive"
         ],
-        $"unpack nested archives (typically .str2_pc) recursively in {Constatns.DefaultDir} subfolder");
+        $"unpack nested archives (typically .str2_pc) recursively in {Constants.DefaultDir} subfolder");
 
-    private readonly Option<List<TextureFormat>> textures = new([
+    private readonly Option<List<ImageFormat>> textures = new([
             "-t",
             "--textures"
         ],
-        $"unpack textures from containers (.cpeg_pc .cvbm_pc .gpeg_pc .gvbm_pc) in {Constatns.DefaultDir} subfolder. Specify one or more supported formats: dds png raw")
+        $"unpack textures from containers (.cpeg_pc .cvbm_pc .gpeg_pc .gvbm_pc) in {Constants.DefaultDir} subfolder. Specify one or more supported formats: dds png raw")
     {
         ArgumentHelpName = "formats",
         AllowMultipleArgumentsPerToken = true,
@@ -37,7 +38,7 @@ public class Unpack : Command
             "-m",
             "--metadata"
         ],
-        $"write {Constatns.MetadataFile} file with archive information: entries, sizes, hashes");
+        $"write {Constants.MetadataFile} file with archive information: entries, sizes, hashes");
 
     private readonly Option<bool> force = new([
             "-f",
@@ -61,7 +62,7 @@ public class Unpack : Command
         $"do not write nested archive files when unpacking. With -r will unpack all regular files without wasting space");
 
     public override string? Description => @"Extract archives and containers
-Supported formats: " + string.Join(" ", Constatns.KnownVppExtensions.Concat(Constatns.KnownPegExtensions));
+Supported formats: " + string.Join(" ", Constants.KnownVppExtensions.Concat(Constants.KnownPegExtensions));
 
     public Unpack() : base(nameof(Unpack).ToLowerInvariant())
     {

@@ -19,6 +19,46 @@ public class ImageConverter(ILogger<ImageConverter> log)
     TODO: colors are off when converted to PNG, especially in normal maps. figure out why, maybe just wrong conversion in dxtex/imgsharp
     */
 
+    public async Task<Stream> ConvertImage(LogicalTexture texture, ImageFormat imageFormat, CancellationToken token)
+    {
+        if (!texture.Data.CanSeek)
+        {
+            throw new ArgumentException($"Need seekable stream, got {texture.Data}", nameof(texture.Data));
+        }
+
+        if (!texture.Data.CanRead)
+        {
+            throw new ArgumentException($"Need readable stream, got {texture.Data}", nameof(texture.Data));
+        }
+
+        if (texture.Data.Position != 0)
+        {
+            throw new ArgumentException($"Expected start of stream, got position = {texture.Data.Position}", nameof(texture.Data));
+        }
+
+        switch (imageFormat)
+        {
+            case ImageFormat.dds:
+                var header = await BuildHeader(texture, token);
+                var ms = new MemoryStream();
+                await header.CopyToAsync(ms, token);
+                await texture.Data.CopyToAsync(ms, token);
+                ms.Seek(0, SeekOrigin.Begin);
+                return ms;
+            case ImageFormat.png:
+                var pngImage = DecodeFirstFrame(texture);
+                var encoder = new PngEncoder();
+                var ms2 = new MemoryStream();
+                await encoder.EncodeAsync(pngImage, ms2, token);
+                ms2.Seek(0, SeekOrigin.Begin);
+                return ms2;
+            case ImageFormat.raw:
+                return texture.Data;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(imageFormat), imageFormat, null);
+        }
+    }
+
     public async Task WritePngFile(Image<Rgba32> image, Stream destination, CancellationToken token)
     {
         var encoder = new PngEncoder();

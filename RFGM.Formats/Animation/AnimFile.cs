@@ -1,6 +1,5 @@
 using System.Numerics;
 using RFGM.Formats.Streams;
-using Silk.NET.Maths;
 
 namespace RFGM.Formats.Animation;
 

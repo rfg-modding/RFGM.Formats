@@ -78,7 +78,7 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
                 if (actualInFlight == 0 && actionBlock.InputCount == 0)
                 {
                     actionBlock.Complete();
-                    log.LogInformation("Finished: no pending tasks");
+                    log.LogInformation("Finished all tasks");
                 }
             }
         }

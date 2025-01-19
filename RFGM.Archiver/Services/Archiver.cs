@@ -1,7 +1,8 @@
+using System.Collections.Concurrent;
 using System.IO.Abstractions;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
+using RFGM.Formats;
 
 namespace RFGM.Archiver.Services;
 
@@ -65,7 +66,7 @@ public class Archiver(IFileSystem fileSystem, Worker worker, ILogger<Archiver> l
     private async Task WriteMetadata(CancellationToken token, string dir)
     {
         // TODO: better format for metadta, eg full entry relative path and single line per object
-        var file = fileSystem.FileInfo.New(Path.Combine(dir, Constatns.MetadataFile));
+        var file = fileSystem.FileInfo.New(Path.Combine(dir, Constants.MetadataFile));
         if (file.Exists)
         {
             log.LogTrace($"Delete file [{file}]");
@@ -75,12 +76,12 @@ public class Archiver(IFileSystem fileSystem, Worker worker, ILogger<Archiver> l
         await using var s = file.Create();
         await using var sw = new StreamWriter(s);
         //await fileSystem.File.WriteAllTextAsync(file.FullName, JsonSerializer.Serialize(Metadata, new JsonSerializerOptions(){WriteIndented = true}), token);
-        foreach (var x in Metadata)
+        foreach (var x in Metadata.OrderBy(x => x.RelativePath))
         {
             await sw.WriteLineAsync(x.ToString());
         }
         log.LogInformation($"Saved metadata file [{file}]");
     }
 
-    public static readonly List<IMetadata> Metadata = new();
+    public static readonly ConcurrentBag<IMetadata> Metadata = new();
 }

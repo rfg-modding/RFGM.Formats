@@ -1,9 +1,9 @@
-namespace RFGM.Formats.Peg.Models;
+namespace RFGM.Formats.Streams;
 
 /// <summary>
 /// Pair of CPU+GPU streams from corresponding files
 /// </summary>
-public record PegStreams(Stream Cpu, Stream Gpu) : IAsyncDisposable
+public record PairedStreams(Stream Cpu, Stream Gpu) : IAsyncDisposable
 {
     public string Size => $"{Cpu.Length}_{Gpu.Length}";
 

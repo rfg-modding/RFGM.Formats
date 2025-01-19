@@ -16,6 +16,7 @@
       <PackageReference Include="SharpZipLib" Version="1.4.2" />
       <PackageReference Include="Silk.NET.DXGI" Version="2.22.0" />
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
+      <PackageReference Include="TestableIO.System.IO.Abstractions" Version="21.2.1" />
     </ItemGroup>
 
 </Project>

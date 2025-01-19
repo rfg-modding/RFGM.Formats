@@ -15,7 +15,6 @@ using NLog.Filters;
 using NLog.Layouts;
 using NLog.Targets;
 using NLog.Targets.Wrappers;
-using RFGM.Archiver;
 using RFGM.Archiver.Args;
 using RFGM.Archiver.Models;
 using RFGM.Archiver.Services;
@@ -32,7 +31,7 @@ var runner = new CommandLineBuilder(root).UseHost(_ => new HostBuilder(),
                 services.AddTransient<IPegArchiver, PegArchiver>();
                 services.AddSingleton<IFileSystem, FileSystem>();
                 services.AddTransient<Archiver>();
-                services.AddTransient<ImageConverter>();
+                services.AddSingleton<ImageConverter>();
                 services.AddSingleton<Worker>();
                 services.AddSingleton<SupportedFormats>();
                 services.AddSingleton(SetupRecyclableMemoryStream);

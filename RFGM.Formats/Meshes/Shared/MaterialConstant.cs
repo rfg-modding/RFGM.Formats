@@ -1,4 +1,3 @@
-using Microsoft.VisualBasic;
 using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Meshes.Shared;

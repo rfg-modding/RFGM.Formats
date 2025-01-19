@@ -1,19 +1,23 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System.IO.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
+using RFGM.Formats.Streams;
 
 var services = new ServiceCollection();
 services.AddLogging(builder => builder.AddSimpleConsole());
 services.AddSingleton<IPegArchiver, PegArchiver>();
 services.AddSingleton<ImageConverter>();
+services.AddSingleton<IFileSystem, FileSystem>();
 var provider = services.BuildServiceProvider();
 var archiver = provider.GetRequiredService<IPegArchiver>();
 var converter = provider.GetRequiredService<ImageConverter>();
+var fs = provider.GetRequiredService<IFileSystem>();
 var log = provider.GetRequiredService<ILogger<Program>>();
 
 // TODO REPLACE ME with some real cpeg+gpeg path
-var pegFiles = PegFiles.FromExistingFile(new FileInfo(@"C:\vault\rfg\peg_test\pegs\always_loaded.cpeg_pc"));
+var pegFiles = PairedFiles.FromExistingFile(fs.FileInfo.New(@"C:\vault\rfg\peg_test\pegs\always_loaded.cpeg_pc"));
 var archive = await archiver.UnpackPeg(pegFiles!.OpenRead(), "test", CancellationToken.None);
 foreach (var logicalTexture in archive.LogicalTextures)
 {
