@@ -359,6 +359,12 @@ namespace RFGM.Formats.Streams
             stream.Write(data, 0, data.Length);
         }
 
+        public static void WriteNullBytes(this Stream stream, long numBytes)
+        {
+            byte[] bytes = new byte[numBytes];
+            stream.Write(bytes);
+        }
+
         #endregion
 
         #region StreamReader helpers
