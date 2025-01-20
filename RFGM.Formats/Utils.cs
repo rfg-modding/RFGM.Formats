@@ -56,13 +56,11 @@ public static class Utils
     /// <summary>
     /// Get rid of order prefix, when filename is "00001 filename.ext"
     /// </summary>
-    /// <param name="input"></param>
-    /// <returns></returns>
-    public static string GetNameWithoutNumber(IFileInfo input)
+    public static string GetNameWithoutNumber(string fileName)
     {
-        var match = Constants.VppEntryNameFormat.Match(input.Name);
+        var match = Constants.VppEntryNameFormat.Match(fileName);
         return match.Success
             ? match.Groups["name"].Value
-            : input.Name;
+            : fileName;
     }
 }

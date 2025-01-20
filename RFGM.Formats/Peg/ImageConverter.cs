@@ -7,6 +7,7 @@ using Silk.NET.DXGI;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
+using Size = RFGM.Formats.Peg.Models.Size;
 
 namespace RFGM.Formats.Peg;
 
@@ -19,7 +20,48 @@ public class ImageConverter(ILogger<ImageConverter> log)
     TODO: colors are off when converted to PNG, especially in normal maps. figure out why, maybe just wrong conversion in dxtex/imgsharp
     */
 
-    public async Task<Stream> ConvertImage(LogicalTexture texture, ImageFormat imageFormat, CancellationToken token)
+    public async Task<Stream> ImageToTexture(Stream image, ImageFormat imageFormat, LogicalTexture logicalTexture, CancellationToken token)
+    {
+        if (!image.CanSeek)
+        {
+            throw new ArgumentException($"Need seekable stream, got {image}", nameof(image));
+        }
+
+        if (!image.CanRead)
+        {
+            throw new ArgumentException($"Need readable stream, got {image}", nameof(image));
+        }
+
+        if (image.Position != 0)
+        {
+            throw new ArgumentException($"Expected start of stream, got position = {image.Position}", nameof(image));
+        }
+
+        switch (imageFormat)
+        {
+            case ImageFormat.dds:
+                // blindly cut header and copy data
+                var header = await BuildHeader(logicalTexture, token);
+                var ms = new MemoryStream();
+                image.Seek(header.Length, SeekOrigin.Begin);
+                await image.CopyToAsync(ms, token);
+                ms.Seek(0, SeekOrigin.Begin);
+                return ms;
+            case ImageFormat.png:
+                var pngImage = await PngDecoder.Instance.DecodeAsync<Rgba32>(new PngDecoderOptions(), image, token);
+                if (pngImage.Width != logicalTexture.Size.Width || pngImage.Height != logicalTexture.Size.Height)
+                {
+                    throw new InvalidOperationException($"PNG has size {pngImage.Width}x{pngImage.Height}, expected {logicalTexture.Size}");
+                }
+                return EncodeToRaw(pngImage, logicalTexture);
+            case ImageFormat.raw:
+                return image;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(imageFormat), imageFormat, null);
+        }
+    }
+
+    public async Task<Stream> TextureToImage(LogicalTexture texture, ImageFormat imageFormat, CancellationToken token)
     {
         if (!texture.Data.CanSeek)
         {
@@ -46,7 +88,7 @@ public class ImageConverter(ILogger<ImageConverter> log)
                 ms.Seek(0, SeekOrigin.Begin);
                 return ms;
             case ImageFormat.png:
-                var pngImage = DecodeFirstFrame(texture);
+                var pngImage = DecodeDDSFirstFrame(texture);
                 var encoder = new PngEncoder();
                 var ms2 = new MemoryStream();
                 await encoder.EncodeAsync(pngImage, ms2, token);
@@ -71,52 +113,72 @@ public class ImageConverter(ILogger<ImageConverter> log)
         return await PngDecoder.Instance.DecodeAsync<Rgba32>(new PngDecoderOptions(), s, token);
     }
 
-    public unsafe Stream Encode(Image<Rgba32> png, LogicalTexture logicalTexture)
+    public unsafe Stream EncodeToRaw(Image<Rgba32> png, LogicalTexture logicalTexture)
     {
         using var disposables = new Disposables();
         var pngSize = png.Width * png.Height * (png.PixelType.BitsPerPixel / 8);
         var pointer = new DisposablePtr(pngSize);
         disposables.Add(pointer);
-
-        var span = new Span<byte>(pointer.value.ToPointer(), pngSize);
+        var span = new Span<byte>(pointer.Value.ToPointer(), pngSize);
         png.CopyPixelDataTo(span);
         var initialFormat = (int)Format.FormatR8G8B8A8Unorm;
-        var rowPitch = UIntPtr.Zero;
-        var slicePitch = UIntPtr.Zero;
+        nuint rowPitch = 0;
+        nuint slicePitch = 0;
         DirectXTex.ComputePitch(initialFormat, (nuint) png.Width, (nuint) png.Height, ref rowPitch, ref slicePitch, CPFlags.None);
-        var dxImage = new Hexa.NET.DirectXTex.Image((nuint) png.Width, (nuint) png.Height, initialFormat, rowPitch, (nuint)pngSize, (byte*) pointer.value.ToPointer());
+        var dxImage = new Hexa.NET.DirectXTex.Image((nuint) png.Width, (nuint) png.Height, initialFormat, rowPitch, (nuint)pngSize, (byte*) pointer.Value.ToPointer());
         var scratchImage = DirectXTex.CreateScratchImage();
         scratchImage.InitializeFromImage(dxImage, false, CPFlags.None);
+        var scratchSize = (int)scratchImage.GetPixelsSize();
+        if (scratchSize != pngSize)
+        {
+            throw new InvalidOperationException($"Failed to initialize image. Pixel sizes: png={pngSize} scratch={scratchSize}");
+        }
         disposables.Add(new DisposableScratchImage(scratchImage));
+
         if (logicalTexture.MipLevels > 1)
         {
-            ScratchImage newImage = default;
+            var newImage = DirectXTex.CreateScratchImage();
             DirectXTex.GenerateMipMaps(scratchImage.GetImages(), TexFilterFlags.Default, (nuint) logicalTexture.MipLevels, ref newImage, false);
             disposables.Add(new DisposableScratchImage(newImage));
+            var originalSize = (int)scratchImage.GetPixelsSize();
+            var newSize = (int)newImage.GetPixelsSize();
+            var expectedSize = GetByteSizeWithMips(originalSize, logicalTexture.MipLevels);
+            if (newSize!= expectedSize)
+            {
+                throw new InvalidOperationException($"Failed to generate mips. Pixel sizes: original={originalSize} new={newSize} expected={expectedSize}");
+            }
             scratchImage = newImage;
-            log.LogDebug("DDS bytes with generated mipmaps: {pixels}", scratchImage.GetPixelsSize());
         }
-        var (dxFormat, compressed, _, _) = GetDxFormat(logicalTexture.Format, logicalTexture.Flags);
+        var (dxFormat, compressed, _, compressionRatio) = GetDxFormat(logicalTexture.Format, logicalTexture.Flags);
         if (compressed)
         {
-            ScratchImage newImage = default;
-            DirectXTex.Compress(scratchImage.GetImages(), (int) dxFormat, TexCompressFlags.Default, 0.5f, ref newImage);
+            var newImage = DirectXTex.CreateScratchImage();
+            var metadata = scratchImage.GetMetadata();
+            DirectXTex.Compress2(scratchImage.GetImages(), scratchImage.GetImageCount(), ref metadata, (int) dxFormat, TexCompressFlags.Default, 0.5f, ref newImage);
+            //DirectXTex.Compress(scratchImage.GetImages(), (int) dxFormat, TexCompressFlags.Default, 0.5f, ref newImage);
+            var originalSize = (int)scratchImage.GetPixelsSize();
+            var newSize = (int)newImage.GetPixelsSize();
+            var expectedSize = originalSize / compressionRatio;
+            if (newSize!= expectedSize)
+            {
+                throw new InvalidOperationException($"Failed to compress. Pixel sizes: original={originalSize} new={newSize} expected={expectedSize}");
+            }
             disposables.Add(new DisposableScratchImage(newImage));
             scratchImage = newImage;
         }
 
         if (dxFormat == Format.FormatR8G8B8A8UnormSrgb)
         {
-            ScratchImage newImage = default;
+            var newImage = DirectXTex.CreateScratchImage();
             DirectXTex.Convert(scratchImage.GetImages(), (int) Format.FormatR8G8B8A8UnormSrgb, TexFilterFlags.Default, 0.5f, ref newImage);
+            log.LogDebug("Size after conversion to {format}: {pixels}", dxFormat, newImage.GetPixelsSize());
             disposables.Add(new DisposableScratchImage(newImage));
             scratchImage = newImage;
         }
 
         var dxSize = (int)scratchImage.GetPixelsSize(); // total length with all mips
-        log.LogDebug("DDS bytes after compression: {pixels}", dxSize);
-        // TODO pad to 16 always?
-        var dataAlign = 16;
+        log.LogDebug("Size after all manipulations: {pixels}", dxSize);
+        var dataAlign = logicalTexture.Align;
         var remainder = dxSize % dataAlign;
         var padding = remainder > 0 ? dataAlign - remainder : 0;
         var totalSize = dxSize + padding;
@@ -133,7 +195,7 @@ public class ImageConverter(ILogger<ImageConverter> log)
         return result;
     }
 
-    public unsafe Image<Rgba32> DecodeFirstFrame(LogicalTexture logicalTexture)
+    public unsafe Image<Rgba32> DecodeDDSFirstFrame(LogicalTexture logicalTexture)
     {
         using var disposables = new Disposables();
         var header = BuildHeader(logicalTexture, CancellationToken.None).Result;
@@ -141,16 +203,15 @@ public class ImageConverter(ILogger<ImageConverter> log)
         var ddsFileSize = (int)header.Length + logicalTexture.TotalSize;
         var pointer = new DisposablePtr(ddsFileSize);
         disposables.Add(pointer);
-        using (var mem = new UnmanagedMemoryStream((byte*) pointer.value.ToPointer(), ddsFileSize, ddsFileSize, FileAccess.Write))
+        using (var mem = new UnmanagedMemoryStream((byte*) pointer.Value.ToPointer(), ddsFileSize, ddsFileSize, FileAccess.Write))
         {
             header.CopyTo(mem);
             logicalTexture.Data.CopyTo(mem);
         }
 
-        var size = new UIntPtr((uint)ddsFileSize);
         TexMetadata metadata = default;
         var scratchImage = DirectXTex.CreateScratchImage();
-        DirectXTex.LoadFromDDSMemory(pointer.value.ToPointer(), (UIntPtr)ddsFileSize, DDSFlags.None, ref metadata, ref scratchImage);
+        DirectXTex.LoadFromDDSMemory(pointer.Value.ToPointer(), (UIntPtr)ddsFileSize, DDSFlags.None, ref metadata, ref scratchImage);
         disposables.Add(new DisposableScratchImage(scratchImage));
         var (_, compressed, _, _) = GetDxFormat(logicalTexture.Format, logicalTexture.Flags);
         if (compressed)
@@ -246,4 +307,12 @@ public class ImageConverter(ILogger<ImageConverter> log)
             RfgCpeg.Entry.BitmapFormat.Pc8888 => flags.HasFlag(TextureFlags.Srgb) ? new DxFormatInfo(Format.FormatR8G8B8A8UnormSrgb, false, true, 1) : new DxFormatInfo(Format.FormatR8G8B8A8Unorm, false, true, 1),
             _ => throw new ArgumentOutOfRangeException(nameof(format), format, "Unsupported texture format")
         };
+
+    /// <summary>
+    /// Geometric progression: each subsequent mip size is 1/4 of previous
+    /// </summary>
+    private int GetByteSizeWithMips(int size, int mipLevel)
+    {
+        return (int) (size * (1 - System.Math.Pow(0.25, mipLevel)) / (1 - 0.25));
+    }
 }

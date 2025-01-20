@@ -19,4 +19,6 @@ public record LogicalFile(Stream Content, string Name, int Order, string? Info, 
 
     [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Why not?")]
     public readonly Lazy<byte[]> NameCString = new(() => Encoding.ASCII.GetBytes(Name + "\0"));
+
+    public string UnpackName => $"{Order:D5} {Name}";
 }

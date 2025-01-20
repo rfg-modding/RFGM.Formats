@@ -15,17 +15,16 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
     private CancellationToken cancellationToken;
     private int inFlight = 0;
     private readonly List<Failure> failed = new();
-    private const int Concurrency = 4; // TODO read from args
     private static readonly object Locker = new();
 
 
-    public async Task Start(IMessage initialValues, CancellationToken token) => await Start([initialValues], token);
+    public async Task Start(IMessage initialValues, int parallel, CancellationToken token) => await Start([initialValues], parallel, token);
 
-    public async Task Start(IEnumerable<IMessage> initialValues, CancellationToken token)
+    public async Task Start(IEnumerable<IMessage> initialValues, int parallel, CancellationToken token)
     {
         actionBlock = new ActionBlock<IMessage>(HandleMessage, new ExecutionDataflowBlockOptions
         {
-            MaxDegreeOfParallelism = Concurrency,
+            MaxDegreeOfParallelism = parallel,
             CancellationToken = token,
         });
         cancellationToken = token;

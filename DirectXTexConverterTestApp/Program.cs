@@ -42,7 +42,7 @@ async Task Write(LogicalTexture logicalTexture, CancellationToken token)
 
     var png = new FileInfo($"_{logicalTexture.Name}.png");
     // TODO: crash
-    var pngImage = converter.DecodeFirstFrame(logicalTexture);
+    var pngImage = converter.DecodeDDSFirstFrame(logicalTexture);
     await using var pngOut = png.OpenWrite();
     await converter.WritePngFile(pngImage, pngOut, token);
 }

@@ -5,10 +5,10 @@ namespace RFGM.Formats.Peg.Models.ImageConverter;
 class DisposablePtr(int length)
     : IDisposable
 {
-    public readonly IntPtr value = Marshal.AllocHGlobal(length);
+    public readonly nint Value = Marshal.AllocHGlobal(length);
 
     public void Dispose()
     {
-        Marshal.FreeHGlobal(value);
+        Marshal.FreeHGlobal(Value);
     }
 }

@@ -11,16 +11,15 @@ using RFGM.Formats.Vpp.Models;
 
 namespace RFGM.Archiver.Services;
 
-public class UnpackHandler(SupportedFormats supportedFormats, IFileSystem fileSystem, ImageConverter imageConverter, ILogger<UnpackHandler> log) : HandlerBase<UnpackMessage>
+public class UnpackHandler(FormatManager formatManager, FileManager fileManager, IFileSystem fileSystem, ImageConverter imageConverter, ILogger<UnpackHandler> log) : HandlerBase<UnpackMessage>
 {
     public override async Task<IEnumerable<IMessage>> Handle(UnpackMessage message, CancellationToken token)
     {
-        log.LogInformation("Reading {name}", message.Archive.Name);
-        var extension = fileSystem.Path.GetExtension(message.Archive.FullName).ToLowerInvariant();
-        var format = supportedFormats.GuessByExtension(extension);
+        log.LogInformation("Unpacking {name}", message.Source.Name);
+        var format = formatManager.GuessFormatByExtension(message.Source);
         if (format == FileFormat.Unsupported)
         {
-            log.LogTrace("Unsupported format [{path}]", message.Archive.FullName);
+            log.LogTrace("Unsupported format [{path}]", message.Source.FullName);
             return [];
         }
 
@@ -29,29 +28,24 @@ public class UnpackHandler(SupportedFormats supportedFormats, IFileSystem fileSy
             log.LogTrace("Supported format, not selected for unpack");
             return [];
         }
-        switch (format)
+
+        return format switch
         {
-            case FileFormat.Vpp:
-            case FileFormat.Str2:
-                return await UnpackVpp(message, token);
-            case FileFormat.Peg:
-                return await UnpackPeg(message, token);
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-        return [];
+            FileFormat.Vpp or FileFormat.Str2 => await UnpackVpp(message, token),
+            FileFormat.Peg => await UnpackPeg(message, token),
+            _ => throw new ArgumentOutOfRangeException()
+        };
     }
 
     private async Task<IEnumerable<IMessage>> UnpackVpp(UnpackMessage message, CancellationToken token)
     {
         var reader = new VppReader();
-        await using var stream = message.Archive.OpenRead();
+        await using var stream = message.Source.OpenRead();
         var hash = message.Hash ? await Utils.ComputeHash(stream) : string.Empty;
-        var logicalArchive = await Task.Run(() => reader.Read(stream, message.Archive.Name, token), token);
+        var logicalArchive = await Task.Run(() => reader.Read(stream, message.Source.Name, token), token);
         var relativePath = message.RelativePath.Append(logicalArchive.Name).ToList();
         var relativePathString = string.Join("/", relativePath);
-        var dstName = $"{logicalArchive.Name}.{logicalArchive.Mode.ToString().ToLowerInvariant()}";
-        var destination = CreateDirectory(message.OutputPath, dstName);
+        var destination = fileManager.CreateSubDirectory(message.OutputPath, logicalArchive.UnpackName);
         var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
         matcher.AddInclude(message.FileGlob);
         var entries = logicalArchive.LogicalFiles.ToList();
@@ -80,33 +74,31 @@ public class UnpackHandler(SupportedFormats supportedFormats, IFileSystem fileSy
 
     private async Task UnpackVppEntry(LogicalFile logicalFile, IDirectoryInfo destination, IReadOnlyList<string> relativePath, bool force, bool hash, CancellationToken token)
     {
-        var fileName = $"{logicalFile.Order:D5} {logicalFile.Name}";
-        var dstFile = CreateFile(destination, fileName, force);
+        var dstFile = fileManager.CreateFile(destination, logicalFile.UnpackName, force);
         var entryHash = hash ? await Utils.ComputeHash(logicalFile.Content) : string.Empty;
         var entryRelativePath = string.Join("/", relativePath.Append(logicalFile.Name));
         log.LogTrace($"Create file [{dstFile}]");
         dstFile.Create().Close();
         await using var dst = dstFile.OpenWrite();
         await logicalFile.Content.CopyToAsync(dst, token);
-        log.LogDebug("Unpacked [{path}]", dstFile.FullName);
         Archiver.Metadata.Add(new VppEntry(logicalFile.Name, entryRelativePath, logicalFile.Order, logicalFile.Offset, logicalFile.Content.Length, logicalFile.CompressedSize, entryHash));
+        log.LogDebug("Unpacked [{path}]", dstFile.FullName);
     }
 
     private async Task<IEnumerable<IMessage>> UnpackPeg(UnpackMessage message, CancellationToken token)
     {
         var reader = new PegReader();
-        var pegFiles = PairedFiles.FromExistingFile(message.Archive);
+        var pegFiles = PairedFiles.FromExistingFile(message.Source);
         if (pegFiles is null)
         {
-            throw new InvalidOperationException($"Could not open CPU+GPU pair of files for [{message.Archive.FullName}]");
+            throw new InvalidOperationException($"Could not open CPU+GPU pair of files for [{message.Source.FullName}]");
         }
         await using var streams = pegFiles.OpenRead();
         var logicalArchive = await Task.Run(() =>reader.Read(streams.Cpu, streams.Gpu, pegFiles.Name, token), token);
         var hash = message.Hash ? await Utils.ComputeHash(streams) : string.Empty;
         var relativePath = message.RelativePath.Append(logicalArchive.Name).ToList();
         var relativePathString = string.Join("/", relativePath);
-        var dstName = $"{logicalArchive.Name}";
-        var destination = CreateDirectory(message.OutputPath, dstName);
+        var destination = fileManager.CreateSubDirectory(message.OutputPath, logicalArchive.UnpackName);
         var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
         matcher.AddInclude(message.FileGlob);
         var entries = logicalArchive.LogicalTextures.ToList();
@@ -138,9 +130,8 @@ public class UnpackHandler(SupportedFormats supportedFormats, IFileSystem fileSy
 
     private async Task UnpackPegEntry(LogicalTexture logicalFile, ImageFormat imageFormat, IDirectoryInfo destination, IReadOnlyList<string> relativePath, bool force, bool hash, CancellationToken token)
     {
-        var fileName = logicalFile.BuildConventionName(imageFormat);
-        var dstFile = CreateFile(destination, fileName, force);
-        var data = await imageConverter.ConvertImage(logicalFile, imageFormat, token);
+        var dstFile = fileManager.CreateFile(destination, logicalFile.UnpackName(imageFormat), force);
+        var data = await imageConverter.TextureToImage(logicalFile, imageFormat, token);
         var entryHash = hash ? await Utils.ComputeHash(data) : string.Empty;
         var entryRelativePath = string.Join("/", relativePath.Append(logicalFile.Name));
         log.LogTrace($"Create file [{dstFile}]");
@@ -150,60 +141,4 @@ public class UnpackHandler(SupportedFormats supportedFormats, IFileSystem fileSy
         Archiver.Metadata.Add(new PegEntry(logicalFile.Name, entryRelativePath, logicalFile.Order, (uint) logicalFile.DataOffset, logicalFile.Data.Length, logicalFile.Size, logicalFile.Source, logicalFile.AnimTiles, logicalFile.Format, logicalFile.Flags, logicalFile.MipLevels, logicalFile.Align, entryHash));
         log.LogDebug("Unpacked [{path}]", dstFile.FullName);
     }
-
-    private (RfgCpeg.Entry.BitmapFormat format, TextureFlags flags, int mipLevels, string name) ParseFilename(string fileName)
-    {
-        var match = Constants.TextureNameFormat.Match(fileName.ToLowerInvariant());
-        var name = match.Groups["name"].Value + ".tga";
-        var formatString = match.Groups["format"].Value;
-        var mipLevels = int.Parse(match.Groups["mipLevels"].Value);
-
-        var (format, flags) = formatString switch
-        {
-            "dxt1" => (RfgCpeg.Entry.BitmapFormat.PcDxt1, TextureFlags.None),
-            "dxt1_srgb" => (RfgCpeg.Entry.BitmapFormat.PcDxt1, TextureFlags.Srgb),
-            "dxt5" => (RfgCpeg.Entry.BitmapFormat.PcDxt5, TextureFlags.None),
-            "dxt5_srgb" => (RfgCpeg.Entry.BitmapFormat.PcDxt5, TextureFlags.Srgb),
-            "rgba" => (RfgCpeg.Entry.BitmapFormat.Pc8888, TextureFlags.None),
-            "rgba_srgb" => (RfgCpeg.Entry.BitmapFormat.Pc8888, TextureFlags.Srgb),
-            _ => throw new ArgumentOutOfRangeException(nameof(formatString), formatString, "Unknown texture format from filename")
-        };
-
-        return (format, flags, mipLevels, name);
-    }
-
-    private IFileInfo CreateFile(IDirectoryInfo parent, string fileName, bool force)
-    {
-        var dstFilePath = fileSystem.Path.Combine(parent.FullName, fileName);
-        var dstFile = fileSystem.FileInfo.New(dstFilePath);
-        if (dstFile.Exists)
-        {
-            if (force)
-            {
-                log.LogTrace($"Delete file [{dstFile}]");
-                dstFile.Delete();
-                dstFile.Refresh();
-            }
-            else
-            {
-                throw new InvalidOperationException($"Destination file [{dstFile.FullName}] already exists! Use --force flag to overwrite");
-            }
-        }
-
-        return dstFile;
-    }
-
-    private IDirectoryInfo CreateDirectory(IDirectoryInfo parent, string dirName)
-    {
-        var path = fileSystem.Path.Combine(parent.FullName, dirName);
-        var result = fileSystem.DirectoryInfo.New(path);
-        if (!result.Exists)
-        {
-            log.LogTrace($"Create dir {result}");
-            result.Create();
-        }
-
-        return result;
-    }
-
 }

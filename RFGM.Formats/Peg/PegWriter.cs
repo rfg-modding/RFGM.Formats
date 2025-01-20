@@ -46,9 +46,9 @@ public class PegWriter(LogicalTextureArchive logicalTextureArchive)
         await BinUtils.WriteUint2(ms, 0, token);
         await BinUtils.WriteUint4(ms, cpuSize, token);
         await BinUtils.WriteUint4(ms, gpuSize, token);
-        await BinUtils.WriteUint2(ms, logicalTextureArchive.LogicalTextures.Count, token);
+        await BinUtils.WriteUint2(ms, logicalTextures.Count, token);
         await BinUtils.WriteUint2(ms, 0, token);
-        await BinUtils.WriteUint2(ms, logicalTextureArchive.LogicalTextures.Count, token);
+        await BinUtils.WriteUint2(ms, logicalTextures.Count, token);
         await BinUtils.WriteUint2(ms, logicalTextureArchive.Align, token);
         return ms.ToArray();
     }

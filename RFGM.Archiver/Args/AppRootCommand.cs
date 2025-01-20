@@ -45,7 +45,8 @@ Advanced: use commandline to see --help and specify options
     {
         AddArgument(inputArg);
         //AddCommand(new DragDrop());
-        AddCommand(new Unpack());
+        //AddCommand(new Unpack());
+        AddCommand(new CollectMetadata());
         //AddCommand(new Pack());
 
         Handler = CommandHandler.Create(Handle);
@@ -58,7 +59,7 @@ Advanced: use commandline to see --help and specify options
     {
         var input = context.ParseResult.GetValueForArgument(inputArg);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
-        await archiver.ProcessInput(input, token);
+        await archiver.ProcessDefault(input, token);
         return 0;
     }
 

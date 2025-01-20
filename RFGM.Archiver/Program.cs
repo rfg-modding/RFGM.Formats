@@ -33,7 +33,8 @@ var runner = new CommandLineBuilder(root).UseHost(_ => new HostBuilder(),
                 services.AddTransient<Archiver>();
                 services.AddSingleton<ImageConverter>();
                 services.AddSingleton<Worker>();
-                services.AddSingleton<SupportedFormats>();
+                services.AddSingleton<FormatManager>();
+                services.AddSingleton<FileManager>();
                 services.AddSingleton(SetupRecyclableMemoryStream);
                 services.AddLogging(SetupLogs);
                 services.Scan(selector =>
