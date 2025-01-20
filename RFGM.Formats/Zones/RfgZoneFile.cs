@@ -81,12 +81,7 @@ public class RfgZoneFile
                 throw new Exception($"Encountered unexpected zone file version {Header.Version}. Expected {ExpectedVersion}.");
             }
 
-            bool HasRelationData2 = ((uint)Header.DistrictFlags & 5) == 0;
             HasRelationData = !Header.DistrictFlags.HasFlag(DistrictFlags.ZoneWithoutRelationData) && !Header.DistrictFlags.HasFlag(DistrictFlags.IsLayer);
-            if (HasRelationData2 != HasRelationData)
-            {
-                throw new Exception("Woops!");
-            }
             if (HasRelationData)
             {
                 stream.Skip(RelationDataSize);

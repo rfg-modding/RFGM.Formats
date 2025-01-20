@@ -94,104 +94,219 @@ public class RfgZoneObject
         return Properties.FirstOrDefault(property => property.NameHash == nameHash);
     }
 
-    private unsafe T? GetPropertyTyped<T>(string name, ushort type) where T : unmanaged
+    private unsafe bool GetPropertyTyped<T>(string name, ushort type, out T? value) where T : unmanaged
     {
+        value = null;
+
         RfgZoneObjectProperty? property = GetProperty(name);
         if (property is null)
-            return null;
+            return false;
         if (property.Type != type)
             throw new Exception($"Invalid type for zone object property '{name}'. Expected type {type}, found {property.Type}.");
         if (property.Size != Unsafe.SizeOf<T>())
             throw new Exception($"Invalid size for zone object property '{name}'. Expected {Unsafe.SizeOf<T>()}, found {property.Size}.");
-        
-        return *(T*)property.Data[0];
+
+        fixed (byte* ptr = property.Data)
+        {
+            value = *(T*)ptr;
+        }
+        return true;
     }
     
-    public float? GetFloat(string name)
+    public bool GetFloat(string name, out float value)
     {
-        return GetPropertyTyped<float>(name, 5);
+        if (GetPropertyTyped(name, 5, out float? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
     
-    public short? GetInt16(string name)
+    public bool GetInt16(string name, out short value)
     {
-        return GetPropertyTyped<short>(name, 5);
+        if (GetPropertyTyped(name, 5, out short? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
 
-    public int? GetInt32(string name)
+    public bool GetInt32(string name, out int value)
     {
-        return GetPropertyTyped<int>(name, 5);
+        if (GetPropertyTyped(name, 5, out int? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
 
-    public byte? GetUInt8(string name)
+    public bool GetUInt8(string name, out byte value)
     {
-        return GetPropertyTyped<byte>(name, 5);
+        if (GetPropertyTyped(name, 5, out byte? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
     
-    public ushort? GetUInt16(string name)
+    public bool GetUInt16(string name, out ushort value)
     {
-        return GetPropertyTyped<ushort>(name, 5);
+        if (GetPropertyTyped(name, 5, out ushort? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
     
-    public uint? GetUInt32(string name)
+    public bool GetUInt32(string name, out uint value)
     {
-        return GetPropertyTyped<uint>(name, 5);
+        if (GetPropertyTyped(name, 5, out uint? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = 0;
+        return false;
     }
 
-    public bool? GetBool(string name)
+    public bool GetBool(string name, out bool value)
     {
-        return GetPropertyTyped<bool>(name, 5);
+        if (GetPropertyTyped(name, 5, out bool? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = false;
+        return false;
     }
 
-    public Vector3? GetVector3(string name)
+    public bool GetVec3(string name, out Vector3 value)
     {
-        return GetPropertyTyped<Vector3>(name, 5);
+        if (GetPropertyTyped(name, 5, out Vector3? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = Vector3.Zero;
+        return false;
     }
 
-    public Matrix3x3? GetMat3(string name)
+    public bool GetMat3(string name, out Matrix3x3 value)
     {
-        return GetPropertyTyped<Matrix3x3>(name, 5);
+        if (GetPropertyTyped(name, 5, out Matrix3x3? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = Matrix3x3.Identity;
+        return false;
     }
 
-    public PositionOrient? GetPositionOrient(string name)
+    public bool GetPositionOrient(string name, out PositionOrient value)
     {
-        return GetPropertyTyped<PositionOrient>(name, 5);
+        if (GetPropertyTyped(name, 5, out PositionOrient? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = new PositionOrient()
+        {
+            Position = Vector3.Zero,
+            Orient = Matrix3x3.Identity,
+        };
+        return false;
     }
 
-    public BoundingBox? GetBoundingBox(string name)
+    public bool GetBBox(string name, out BoundingBox value)
     {
-        return GetPropertyTyped<BoundingBox>(name, 5);
+        if (GetPropertyTyped(name, 5, out BoundingBox? prop))
+        {
+            value = prop!.Value;
+            return true;
+        }
+
+        value = new BoundingBox()
+        {
+            Min = Vector3.Zero,
+            Max = Vector3.Zero,
+        };
+        return false;
     }
 
-    public byte[] GetBuffer(string name)
+    public bool GetBuffer(string name, out byte[] value)
     {
         RfgZoneObjectProperty? property = GetProperty(name);
         if (property is null)
-            return [];
+        {
+            value = [];
+            return false;
+        }
         if (property.Type != 6)
+        {
             throw new Exception($"Invalid type for zone object buffer property '{name}'. Expected type 6, found {property.Type}.");
+        }
         
-        return property.Data;
+        value = property.Data;
+        return true;
     }
 
-    public string? GetString(string name)
+    public bool GetString(string name, out string value)
     {
         RfgZoneObjectProperty? property = GetProperty(name);
         if (property is null)
-            return null;
+        {
+            value = string.Empty;
+            return false;
+        }
         if (property.Type != 4)
+        {
             throw new Exception($"Invalid type for zone object string property '{name}'. Expected type 4, found {property.Type}.");
+        }
         
         string result = System.Text.Encoding.ASCII.GetString(property.Data);
         if (result.EndsWith('\0'))
         {
             result = result.Substring(0, result.Length - 1); //Don't include null terminator
-        }                
-        return result;
+        }
+        value = result;
+        return true;
     }
 
     //TODO: Implement the ConstraintTemplate struct and return that here
-    public byte[] GetConstraintTemplate(string name)
+    public bool GetConstraintTemplate(string name, out byte[] value)
     {
-        return GetBuffer(name);
+        RfgZoneObjectProperty? property = GetProperty(name);
+        if (property is null)
+        {
+            value = [];
+            return false;
+        }
+        if (property.Type != 5)
+        {
+            throw new Exception($"Invalid type for zone object constraint property '{name}'. Expected type 5, found {property.Type}.");
+        }
+        
+        value = property.Data;
+        return true;
     }
 }
