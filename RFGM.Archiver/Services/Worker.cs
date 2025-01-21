@@ -1,11 +1,12 @@
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.IO;
 using RFGM.Archiver.Models;
 
 namespace RFGM.Archiver.Services;
 
-public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> log)
+public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemoryStreamManager streamManager, ILogger<Worker> log)
 {
     public int Pending => actionBlock.InputCount;
     public int InFlight => inFlight;
@@ -15,6 +16,7 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
     private CancellationToken cancellationToken;
     private int inFlight = 0;
     private readonly List<Failure> failed = new();
+    private Queue<IMessage> lowPriority = new();
     private static readonly object Locker = new();
 
 
@@ -28,11 +30,22 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
             CancellationToken = token,
         });
         cancellationToken = token;
-        foreach (var initialValue in initialValues)
+        foreach (var x in initialValues)
         {
-            actionBlock.Post(initialValue);
+            lowPriority.Enqueue(x);
         }
+
+        if (!lowPriority.Any())
+        {
+            log.LogWarning("Nothing to process");
+            return;
+        }
+
+        var m = lowPriority.Dequeue();
+        log.LogTrace("Posting initial message {message}", m);
+        actionBlock.Post(m);
         await actionBlock.Completion;
+
     }
 
     private async Task HandleMessage(IMessage message)
@@ -76,8 +89,19 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
                 var actualInFlight = Interlocked.Decrement(ref inFlight);
                 if (actualInFlight == 0 && actionBlock.InputCount == 0)
                 {
-                    actionBlock.Complete();
-                    log.LogInformation("Finished all tasks");
+                    log.LogDebug("Streams in use: {count}", Archiver.StreamTags.Count);
+                    if (lowPriority.Any())
+                    {
+                        // when nothing else to do, start next initial task
+                        var x = lowPriority.Dequeue();
+                        log.LogTrace("Posting initial message {message}", x);
+                        actionBlock.Post(x);
+                    }
+                    else
+                    {
+                        actionBlock.Complete();
+                        log.LogInformation("Finished all tasks");
+                    }
                 }
             }
         }

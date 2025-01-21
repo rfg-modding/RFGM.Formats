@@ -1,10 +1,14 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Abstractions;
+using System.Reflection;
+using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
 using RFGM.Formats;
 using RFGM.Formats.Streams;
+using RFGM.Formats.Vpp;
 
 namespace RFGM.Archiver.Services;
 
@@ -117,8 +121,108 @@ public class Archiver(IFileSystem fileSystem, FileManager fileManager, Worker wo
 
             var primary = maybePair?.Cpu ?? file;
             var secondary = maybePair?.Gpu;
-            var name = maybePair?.Name ?? file.Name;
-            yield return new CollectMetadataMessage(primary.OpenRead(), secondary?.OpenRead(), Utils.GetNameWithoutNumber(name), [], hash);
+            var name = Utils.GetNameWithoutNumber(maybePair?.Name ?? file.Name);
+            yield return new CollectMetadataMessage(primary.OpenRead(), secondary?.OpenRead(), name, Breadcrumbs.Init(), hash);
+        }
+    }
+
+    public async Task Test(List<string> input, int parallel, CancellationToken token)
+    {
+        await TestIndividualCompressed(token);
+        await TestCompactedBlock(token);
+    }
+
+    private async Task TestIndividualCompressed(CancellationToken token)
+    {
+        log.LogInformation("Testing if compressed vpp entries can be read multiple times");
+        var vpp = fileSystem.FileInfo.New("test/misc.vpp_pc");
+        await using var source = vpp.OpenRead();
+        var reader = new VppReader();
+        var archive = await Task.Run(() => reader.Read(source, vpp.Name, token), token);
+        log.LogInformation("{archive}", archive);
+        foreach (var entry in archive.LogicalFiles)
+        {
+            var x = entry.Content;
+
+
+            var ms1 = new MemoryStream();
+            var ms2 = new MemoryStream();
+            var ms3 = new MemoryStream();
+            await x.CopyToAsync(ms1, token);
+            ms1.Seek(0, SeekOrigin.Begin);
+            x.Seek(0, SeekOrigin.Begin);
+            await x.CopyToAsync(ms2, token);
+            ms2.Seek(0, SeekOrigin.Begin);
+
+            x.Seek(0, SeekOrigin.Begin);
+            x.Seek(10, SeekOrigin.Begin);
+            x.Seek(-5, SeekOrigin.Current);
+            x.Seek(5, SeekOrigin.Current);
+            x.Seek(-5, SeekOrigin.End);
+            x.Seek(0, SeekOrigin.Begin);
+            await x.CopyToAsync(ms3, token);
+            ms3.Seek(0, SeekOrigin.Begin);
+
+            var h1 = await Utils.ComputeHash(ms1);
+            var h2 = await Utils.ComputeHash(ms2);
+            var h3 = await Utils.ComputeHash(ms3);
+            if (h1 != h2 || h1 != h3)
+            {
+                throw new InvalidOperationException($"Different hashes for {entry}");
+            }
+        }
+    }
+
+    private async Task TestCompactedBlock(CancellationToken token)
+    {
+        log.LogInformation("Testing if compacted vpp entries can be read multiple times");
+        var vpp = fileSystem.FileInfo.New("test/table.vpp_pc");
+        await using var source = vpp.OpenRead();
+        var reader = new VppReader();
+        var archive = await Task.Run(() => reader.Read(source, vpp.Name, token), token);
+        await Task.Delay(TimeSpan.FromSeconds(1), token); // let logs flush
+        foreach (var entry in archive.LogicalFiles)
+        {
+            //Console.WriteLine("=========================================================");
+            //Console.WriteLine(entry);
+            var x = entry.Content;
+            var ms1 = new MemoryStream();
+            var ms2 = new MemoryStream();
+            var ms3 = new MemoryStream();
+
+            //Console.WriteLine($"* clean\n\ttop level ={x}");
+            await x.CopyToAsync(ms1, token);
+            //Console.WriteLine($"* after copy 1\n\ttop level ={x}");
+            ms1.Seek(0, SeekOrigin.Begin);
+            x.Seek(0, SeekOrigin.Begin);
+            //Console.WriteLine($"* rewind\n\ttop level ={x}");
+            await x.CopyToAsync(ms2, token);
+            //Console.WriteLine($"* after copy 2\n\ttop level ={x}");
+            ms2.Seek(0, SeekOrigin.Begin);
+            //Console.WriteLine($"ms1=[{ms1.ReadAsciiString(30)}]");
+            //Console.WriteLine($"ms2=[{ms2.ReadAsciiString(30)}]");
+            ms1.Seek(0, SeekOrigin.Begin);
+            ms2.Seek(0, SeekOrigin.Begin);
+            var h1 = await Utils.ComputeHash(ms1);
+            var h2 = await Utils.ComputeHash(ms2);
+            if (h1 != h2)
+            {
+                throw new InvalidOperationException($"h1 h2 mismatch ({h1} / {h2})");
+            }
+
+            x.Seek(0, SeekOrigin.Begin);
+            x.Seek(10, SeekOrigin.Begin);
+            x.Seek(-5, SeekOrigin.Current);
+            x.Seek(5, SeekOrigin.Current);
+            x.Seek(-5, SeekOrigin.End);
+            x.Seek(0, SeekOrigin.Begin);
+            await x.CopyToAsync(ms3, token);
+            ms3.Seek(0, SeekOrigin.Begin);
+            var h3 = await Utils.ComputeHash(ms3);
+            if (h1 != h3)
+            {
+                throw new InvalidOperationException($"h1 h3 mismatch ({h1} / {h3})");
+            }
         }
     }
 
@@ -135,4 +239,6 @@ public class Archiver(IFileSystem fileSystem, FileManager fileManager, Worker wo
     }
 
     public static readonly ConcurrentBag<IMetadata> Metadata = new();
+
+    public static readonly ConcurrentDictionary<string, byte> StreamTags = new();
 }

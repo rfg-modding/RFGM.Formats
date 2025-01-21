@@ -47,6 +47,7 @@ Advanced: use commandline to see --help and specify options
         //AddCommand(new DragDrop());
         //AddCommand(new Unpack());
         AddCommand(new CollectMetadata());
+        AddCommand(new Test());
         //AddCommand(new Pack());
 
         Handler = CommandHandler.Create(Handle);

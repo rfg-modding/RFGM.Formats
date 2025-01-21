@@ -63,4 +63,18 @@ public static class Utils
             ? match.Groups["name"].Value
             : fileName;
     }
+
+    /// <summary>
+    /// Clones chain of wrappers for multithreaded file access with inflation and whatever
+    /// </summary>
+    public static Stream MakeDeepOwnCopy(Stream value)
+    {
+        return value switch
+        {
+            FileStream f => new FileStream(f.Name, FileMode.Open),
+            StreamView sv => new StreamView(MakeDeepOwnCopy(sv.UnderlyingStream), sv.ViewStart, sv.Length, sv.Name + "+") {IsStreamOwner = true},
+            SeekableInflaterStream si => new SeekableInflaterStream(MakeDeepOwnCopy(si.UnderlyingStream), si.Length) {IsStreamOwner = true},
+            _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Only view, inflater and file streams are supported")
+        };
+    }
 }

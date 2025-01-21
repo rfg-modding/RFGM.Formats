@@ -6,14 +6,20 @@ using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
 namespace RFGM.Formats.Streams;
 
 /// <summary>
-/// Limited view of an underlying stream, maintaining its own position
+/// Limited view of an underlying stream, maintaining its own position. Does not hold resources and does not own underlying stream
 /// </summary>
-public sealed class StreamView(Stream stream, long viewStart, long viewLength)
+public sealed class StreamView(Stream underlyingStream, long viewStart, long viewLength, string name)
     : Stream
 {
-    public override bool CanRead => Stream.CanRead;
+    public bool IsStreamOwner { get; set; } = false;
 
-    public override bool CanSeek => Stream.CanSeek;
+    private bool isClosed;
+
+    public string Name => name;
+
+    public override bool CanRead => UnderlyingStream.CanRead;
+
+    public override bool CanSeek => UnderlyingStream.CanSeek;
 
     public override bool CanWrite => false;
 
@@ -21,47 +27,15 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
 
     public override long Position { get; set; } = 0;
 
-    [SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "This class does not own stream")]
-    private Stream Stream { get; } = stream;
+    public Stream UnderlyingStream { get; } = underlyingStream;
 
-    private long ViewStart { get; } = viewStart;
+    public long ViewStart { get; } = viewStart;
 
-    public StreamView ThreadSafeCopy()
-    {
-        switch (Stream)
-        {
-            case FileStream fs:
-                var newFileStream = File.OpenRead(fs.Name);
-                newFileStream.Position = fs.Position;
-                var result1 = new StreamView(newFileStream, ViewStart, Length);
-                result1.Position = Position;
-                return result1;
-            case MemoryStream ms:
-                var newMemoryStream = new MemoryStream(ms.ToArray());
-                newMemoryStream.Position = ms.Position;
-                var result2 = new StreamView(newMemoryStream, ViewStart, Length);
-                result2.Position = Position;
-                return result2;
-            case InflaterInputStream iis:
-                var inflated = new MemoryStream();
-                iis.CopyTo(inflated);
-                var result3 = new StreamView(inflated, ViewStart, Length);
-                result3.Position = Position;
-                return result3;
-            case StreamView sv:
-                var innerCopy = sv.ThreadSafeCopy().Stream;
-                var result4 = new StreamView(innerCopy, ViewStart, Length);
-                result4.Position = Position;
-                return result4;
-            default:
-                throw new InvalidOperationException();
-        }
-    }
-
-    public override void Flush() => Stream.Flush();
+    public override void Flush() => UnderlyingStream.Flush();
 
     public override int Read(byte[] buffer, int offset, int count)
     {
+        //Console.WriteLine($">>> READ ARGS {offset} {count} (view {name})");
         if (Position >= Length)
         {
             return 0;
@@ -72,15 +46,14 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
             ? (int) (Position + count - Length)
             : 0;
 
-        if (Stream.Position != ViewStart + Position)
+        if (UnderlyingStream.Position != ViewStart + Position)
         {
-            if (Stream is not InflaterInputStream)
-            {
-                Stream.Seek(ViewStart + Position, SeekOrigin.Begin);
-            }
+            //Console.WriteLine($">>> READ SEEK {ViewStart}+{Position} (view {name})");
+            UnderlyingStream.Seek(ViewStart + Position, SeekOrigin.Begin);
         }
 
-        var result = Stream.Read(buffer, offset, count - extraBytes);
+        //Console.WriteLine($">>> READ UNDR {offset} {count-extraBytes} (view {name})");
+        var result = UnderlyingStream.Read(buffer, offset, count - extraBytes);
         if (result > 0)
         {
             Position += result;
@@ -96,12 +69,12 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
             return -1;
         }
 
-        if (Stream.Position != ViewStart + Position)
+        if (UnderlyingStream.Position != ViewStart + Position)
         {
-            Stream.Seek(ViewStart + Position, SeekOrigin.Begin);
+            UnderlyingStream.Seek(ViewStart + Position, SeekOrigin.Begin);
         }
 
-        var result = Stream.ReadByte();
+        var result = UnderlyingStream.ReadByte();
         if (result > 0)
         {
             Position += result;
@@ -112,6 +85,7 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
 
     public override long Seek(long offset, SeekOrigin origin)
     {
+        //Console.WriteLine($">>> SEEK VIEW {offset} {origin} (view {name})");
         switch (origin)
         {
             case SeekOrigin.Begin:
@@ -120,25 +94,8 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
                     throw new InvalidOperationException($"Out of bounds: offset is {offset}, origin is {origin}, max length is {Length}");
                 }
 
-                if (Stream is InflaterInputStream)
-                {
-                    // hack to avoid seeking but still allow fast-forwarding
-                    var delta = (int) (offset - Position);
-                    if (delta < 0)
-                    {
-                        throw new InvalidOperationException("Can't seek back to rewind InflaterInputStream");
-                    }
-
-                    var pool = ArrayPool<byte>.Shared;
-                    var buf = pool.Rent(delta);
-                    Position = offset;
-                    var read = Stream.Read(buf, 0, delta);
-                    pool.Return(buf);
-                    return read;
-                }
-
                 Position = offset;
-                return Stream.Seek(ViewStart + offset, SeekOrigin.Begin);
+                return UnderlyingStream.Seek(ViewStart + offset, SeekOrigin.Begin);
             case SeekOrigin.Current:
                 if (Position + offset < 0 || Position + offset > Length)
                 {
@@ -146,15 +103,15 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
                 }
 
                 Position += offset;
-                return Stream.Seek(offset, SeekOrigin.Current);
+                return UnderlyingStream.Seek(Position, SeekOrigin.Begin);
             case SeekOrigin.End:
-                if (offset < 0 || offset > Length)
+                if (offset > 0 || offset < -Length)
                 {
                     throw new InvalidOperationException($"Out of bounds: offset is {offset}, origin is {origin}, max length is {Length}");
                 }
 
-                Position = Length - offset;
-                return Stream.Seek(ViewStart + Length - offset, SeekOrigin.Begin);
+                Position = Length + offset;
+                return UnderlyingStream.Seek(Position, SeekOrigin.Begin);
             default:
                 throw new ArgumentOutOfRangeException(nameof(origin), origin, null);
         }
@@ -164,11 +121,18 @@ public sealed class StreamView(Stream stream, long viewStart, long viewLength)
 
     public override void Write(byte[] buffer, int offset, int count) => throw new InvalidOperationException($"{nameof(StreamView)} is read-only");
 
-    public override string ToString()
+    public override string ToString() => $"{nameof(StreamView),23} viewStart={ViewStart,10}, len={Length,10}, pos={Position,10}, owner={IsStreamOwner}, {name,20}\n\tunderlying={UnderlyingStream}";
+
+    protected override void Dispose(bool disposing)
     {
-        var length = Stream is InflaterInputStream
-            ? "unsupported (inflater stream)"
-            : Stream.Length.ToString(CultureInfo.InvariantCulture);
-        return $"StreamView: start={ViewStart}, len={Length}, pos={Position}, stream len={length}, stream pos={Stream.Position}";
+        if (isClosed)
+        {
+            return;
+        }
+        isClosed = true;
+        if (IsStreamOwner)
+        {
+            UnderlyingStream.Dispose();
+        }
     }
 }

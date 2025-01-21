@@ -50,7 +50,7 @@ public class PegReader
                 (int) x.DataOffset,
                 (int) x.NameOffset,
                 cpeg.Header.AlignValue,
-                new StreamView(gpu, entryData.DataOffset, entryData.DataSize)
+                new StreamView(gpu, entryData.DataOffset, entryData.DataSize, entryData.Name)
             );
             textures.Add(texture);
             i++;

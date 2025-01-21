@@ -113,13 +113,18 @@ void SetupLogs(ILoggingBuilder x)
 RecyclableMemoryStreamManager SetupRecyclableMemoryStream(IServiceProvider sp)
 {
     var log = sp.GetRequiredService<ILogger<RecyclableMemoryStreamManager>>();
-    var manager = new RecyclableMemoryStreamManager();
-    var tags = new ConcurrentDictionary<string, byte>();
+    var manager = new RecyclableMemoryStreamManager(new RecyclableMemoryStreamManager.Options()
+    {
+        AggressiveBufferReturn = true,
+        MaximumLargePoolFreeBytes = 64 * 1024 * 1024,
+        MaximumSmallPoolFreeBytes = 100 * 1024
+    });
+
     manager.StreamCreated += (_, eventArgs) =>
     {
         log.LogDebug("Stream created: {tag}", eventArgs.Tag);
 
-        if (!tags.TryAdd(eventArgs.Tag!, 1))
+        if (!Archiver.StreamTags.TryAdd(eventArgs.Tag!, 1))
         {
             throw new InvalidOperationException($"Duplicate stream tag [{eventArgs.Tag}]");
         }
@@ -127,15 +132,14 @@ RecyclableMemoryStreamManager SetupRecyclableMemoryStream(IServiceProvider sp)
     manager.StreamDisposed += (_, eventArgs) =>
     {
         log.LogDebug("Stream disposed: {tag}", eventArgs.Tag);
-        if (!tags.TryRemove(eventArgs.Tag!, out var _))
+        if (!Archiver.StreamTags.TryRemove(eventArgs.Tag!, out var _))
         {
             throw new InvalidOperationException($"Missing stream tag [{eventArgs.Tag}]");
         }
     };
-    manager.UsageReport += (_, eventArgs) =>
+    manager.StreamFinalized += (sender, eventArgs) =>
     {
-        //var info = JsonSerializer.Serialize(eventArgs);
-        log.LogDebug("Streams: {n} in use", tags.Count);
+        log.LogError("Stream finalized: {tag}", eventArgs.Tag);
     };
     return manager;
 }

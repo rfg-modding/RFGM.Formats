@@ -80,25 +80,17 @@ public partial class RfgVpp
         var rootStream = M_Io.BaseStream;
         var fileLength = rootStream.Length;
         var blockLength = fileLength - blockOffset;
-        var compressedStream = new StreamView(rootStream, blockOffset, blockLength);
-        using var inflaterStream = new InflaterInputStream(compressedStream);
+        var compressedStream = new StreamView(rootStream, blockOffset, blockLength, "vpp data block");
         var decompressedLength = Header.LenData;
-        using var tmpView = new StreamView(inflaterStream, 0, decompressedLength);
-        var ms = new MemoryStream();
-        tmpView.CopyTo(ms);
-        ms.Seek(0, SeekOrigin.Begin);
-
-        if (ms.Length != decompressedLength)
-        {
-            throw new InvalidOperationException($"Actual decompressed length {ms.Length} is not equal to expected {decompressedLength}");
-        }
+        var inflaterStream = new SeekableInflaterStream(compressedStream, decompressedLength);
+        //var view = new StreamView(inflaterStream, 0, decompressedLength);
 
         Header.Flags.OverrideFlagsNone();
         foreach (var entryData in BlockEntryData.Value)
         {
             token.ThrowIfCancellationRequested();
             entryData.OverrideAlignmentSize(alignment);
-            entryData.OverrideData(new StreamView(ms, entryData.XDataOffset, entryData.XLenData));
+            entryData.OverrideData(new StreamView(inflaterStream, entryData.XDataOffset, entryData.XLenData, entryData.XName));
         }
     }
 
@@ -116,10 +108,10 @@ public partial class RfgVpp
             // NOTE: important to calculate it before all overrides
             var totalCompressedLength = entryData.TotalSize;
             var rootStream = M_Io.BaseStream;
-            var compressedStream = new StreamView(rootStream, offset, compressedLength);
-            var inflaterStream = new InflaterInputStream(compressedStream);
+            var compressedStream = new StreamView(rootStream, offset, compressedLength, $"compressed {entryData.XName}");
             var decompressedLength = entryData.XLenData;
-            var view = new StreamView(inflaterStream, 0, decompressedLength);
+            var inflaterStream = new SeekableInflaterStream(compressedStream, decompressedLength);
+            var view = new StreamView(inflaterStream, 0, decompressedLength, entryData.XName);
 
             // alignment size is used when creating data, ignoring it
             entryData.OverrideAlignmentSize(0);
@@ -283,7 +275,7 @@ comp data sz: [{LenCompressedData}]
             var length = DataSize;
             var rootStream = M_Root.M_Io.BaseStream;
             var viewStart = M_Root.BlockOffset + LongOffset;
-            return new StreamView(rootStream, viewStart, length);
+            return new StreamView(rootStream, viewStart, length, XName);
         }
 
         public void OverrideAlignmentSize(int alignment)
