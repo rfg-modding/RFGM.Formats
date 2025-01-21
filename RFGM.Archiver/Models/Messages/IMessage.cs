@@ -1,4 +1,4 @@
-namespace RFGM.Archiver.Models;
+namespace RFGM.Archiver.Models.Messages;
 
 public interface IMessage
 {

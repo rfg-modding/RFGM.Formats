@@ -70,7 +70,7 @@ public partial class RfgVpp
     /// <summary>
     /// Decompress solid entries block. Since writer will need to read data twice (to compute length and then actually read content), we copy non-seekable InflaterInputStream to memory
     /// </summary>
-    public void ReadCompactedData(CancellationToken token)
+    public void ReadCompactedData(OptimizeFor profile, CancellationToken token)
     {
         var alignment = DetectAlignmentSize(token);
         token.ThrowIfCancellationRequested();
@@ -80,24 +80,50 @@ public partial class RfgVpp
         var rootStream = M_Io.BaseStream;
         var fileLength = rootStream.Length;
         var blockLength = fileLength - blockOffset;
-        var compressedStream = new StreamView(rootStream, blockOffset, blockLength, "vpp data block");
-        var decompressedLength = Header.LenData;
-        var inflaterStream = new SeekableInflaterStream(compressedStream, decompressedLength);
-        //var view = new StreamView(inflaterStream, 0, decompressedLength);
+        var compressedStream = new StreamView(rootStream, blockOffset, blockLength, "compacted vpp");
+        var stream = ReadCompactedBlock(profile, compressedStream);
 
         Header.Flags.OverrideFlagsNone();
         foreach (var entryData in BlockEntryData.Value)
         {
             token.ThrowIfCancellationRequested();
             entryData.OverrideAlignmentSize(alignment);
-            entryData.OverrideData(new StreamView(inflaterStream, entryData.XDataOffset, entryData.XLenData, entryData.XName));
+            entryData.OverrideData(new StreamView(stream, entryData.XDataOffset, entryData.XLenData, entryData.XName));
         }
+    }
+
+    private Stream ReadCompactedBlock(OptimizeFor profile, Stream compressed)
+    {
+        var decompressedLength = Header.LenData;
+        switch (profile)
+        {
+            case OptimizeFor.Speed:
+            {
+                using var inflaterStream = new InflaterInputStream(compressed);
+                using var tmpView = new StreamView(inflaterStream, 0, decompressedLength, "temporary inflated vpp");
+                var ms = new MemoryStream(); // TODO use RecyclableMemoryStreamManager instead for faster memory release
+                tmpView.CopyTo(ms);
+                ms.Seek(0, SeekOrigin.Begin);
+
+                if (ms.Length != decompressedLength)
+                {
+                    throw new InvalidOperationException($"Actual decompressed length {ms.Length} is not equal to expected {decompressedLength}");
+                }
+
+                return ms;
+            }
+            case OptimizeFor.Memory:
+                return new SeekableInflaterStream(compressed, decompressedLength, "inflated vpp");
+            default:
+                throw new ArgumentOutOfRangeException(nameof(profile), profile, null);
+        }
+
     }
 
     /// <summary>
     /// Decompress each entry separately
     /// </summary>
-    public void ReadCompressedData(CancellationToken token)
+    public void ReadCompressedData(OptimizeFor profile, CancellationToken token)
     {
         var offset = BlockOffset;
         foreach (var entryData in BlockEntryData.Value)
@@ -109,14 +135,12 @@ public partial class RfgVpp
             var totalCompressedLength = entryData.TotalSize;
             var rootStream = M_Io.BaseStream;
             var compressedStream = new StreamView(rootStream, offset, compressedLength, $"compressed {entryData.XName}");
-            var decompressedLength = entryData.XLenData;
-            var inflaterStream = new SeekableInflaterStream(compressedStream, decompressedLength);
-            var view = new StreamView(inflaterStream, 0, decompressedLength, entryData.XName);
+            var stream = ReadCompressedEntry(profile, compressedStream, entryData);
 
             // alignment size is used when creating data, ignoring it
             entryData.OverrideAlignmentSize(0);
             entryData.OverrideDataSize(entryData.XLenData);
-            entryData.OverrideData(view);
+            entryData.OverrideData(stream);
             entryData.CompressedStream = compressedStream;
             offset += totalCompressedLength;
         }
@@ -124,7 +148,38 @@ public partial class RfgVpp
         Header.Flags.OverrideFlagsNone();
     }
 
-    public void FixOffsetOverflow(CancellationToken token)
+    private static Stream ReadCompressedEntry(OptimizeFor profile, StreamView compressed, EntryData entryData)
+    {
+        var decompressedLength = entryData.XLenData;
+        switch (profile)
+        {
+            case OptimizeFor.Speed:
+            {
+                using var inflaterStream = new InflaterInputStream(compressed);
+                using var tmpView = new StreamView(inflaterStream, 0, decompressedLength, "temporary inflated entry");
+                var ms = new MemoryStream(); // TODO use RecyclableMemoryStreamManager instead for faster memory release
+                tmpView.CopyTo(ms);
+                ms.Seek(0, SeekOrigin.Begin);
+
+                if (ms.Length != decompressedLength)
+                {
+                    throw new InvalidOperationException($"Actual decompressed length {ms.Length} is not equal to expected {decompressedLength}");
+                }
+
+                return ms;
+            }
+            case OptimizeFor.Memory:
+                var seekableInflaterStream = new SeekableInflaterStream(compressed, decompressedLength, $"inflated {entryData.XName}");
+                var view = new StreamView(seekableInflaterStream, 0, decompressedLength, entryData.XName);
+                return view;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(profile), profile, null);
+        }
+
+    }
+
+
+    public void FixOffsetOverflow(OptimizeFor profile, CancellationToken token)
     {
         long previousValue = 0;
         foreach (var entryData in BlockEntryData.Value)

@@ -1,4 +1,5 @@
 using RFGM.Archiver.Models;
+using RFGM.Archiver.Models.Messages;
 
 namespace RFGM.Archiver.Services;
 

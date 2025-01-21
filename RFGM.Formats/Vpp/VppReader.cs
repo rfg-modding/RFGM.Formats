@@ -6,7 +6,7 @@ using RFGM.Formats.Vpp.Models;
 
 namespace RFGM.Formats.Vpp;
 
-public class VppReader
+public class VppReader(OptimizeFor profile)
 {
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "I dont care about disposing wrappers")]
     public LogicalArchive Read(Stream source, string name, CancellationToken token)
@@ -26,7 +26,7 @@ public class VppReader
             yield break;
         }
 
-        Action<CancellationToken> fixupAction = vpp.Header.Flags.Mode switch
+        Action<OptimizeFor, CancellationToken> fixupAction = vpp.Header.Flags.Mode switch
         {
             RfgVpp.HeaderBlock.Mode.Normal => vpp.FixOffsetOverflow,
             RfgVpp.HeaderBlock.Mode.Compacted => vpp.ReadCompactedData,
@@ -37,7 +37,7 @@ public class VppReader
 
         try
         {
-            fixupAction.Invoke(token);
+            fixupAction.Invoke(profile, token);
         }
         catch (SharpZipBaseException e)
         {

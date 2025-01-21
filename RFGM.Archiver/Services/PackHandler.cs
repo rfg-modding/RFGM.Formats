@@ -2,6 +2,8 @@ using System.IO.Abstractions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
+using RFGM.Archiver.Models.Messages;
+using RFGM.Archiver.Models.Metadata;
 using RFGM.Formats;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
@@ -42,7 +44,7 @@ public class PackHandler(FormatManager formatManager, FileManager fileManager, I
         foreach (var file in files)
         {
             token.ThrowIfCancellationRequested();
-            var entry = await CreateVppEntry(file, breadcrumbs, message.Hash);
+            var entry = await CreateVppEntry(file, breadcrumbs, message.Hash, token);
             if (entry != null)
             {
                 entries.Add(entry);
@@ -61,8 +63,8 @@ public class PackHandler(FormatManager formatManager, FileManager fileManager, I
         }
 
         await using var readStream = output.OpenRead();
-        var hash = message.Hash ? await Utils.ComputeHash(readStream) : string.Empty;
-        Archiver.Metadata.Add(new VppArchive(archive.Name, relativePath, archive.Mode, readStream.Length, hash, files.Count));
+        var hash = message.Hash ? await Utils.ComputeHash(readStream, token) : string.Empty;
+        Archiver.Metadata.Add(new VppArchive(archive.Name, relativePath, archive.Mode, readStream.Length.ToString(), hash, files.Count));
         log.LogInformation("Packed {path}", relativePath);
 
         if (message.Recursive)
@@ -73,7 +75,7 @@ public class PackHandler(FormatManager formatManager, FileManager fileManager, I
         return [];
     }
 
-    private async Task<LogicalFile?> CreateVppEntry(IFileInfo file, Breadcrumbs parentBreadcrumbs, bool doHash)
+    private async Task<LogicalFile?> CreateVppEntry(IFileInfo file, Breadcrumbs parentBreadcrumbs, bool doHash, CancellationToken token)
     {
         if (fileManager.IsIgnored(file))
         {
@@ -81,10 +83,10 @@ public class PackHandler(FormatManager formatManager, FileManager fileManager, I
         }
         var (order, name) = formatManager.ParseVppEntryInfo(file);
         var stream = file.OpenRead();
-        var hash = doHash ? await Utils.ComputeHash(stream) : string.Empty;
+        var hash = doHash ? await Utils.ComputeHash(stream, token) : string.Empty;
         var result = new LogicalFile(file.OpenRead(), name, order, null, null);
         var breadcrumbs = parentBreadcrumbs.Descend(result.Name);
-        Archiver.Metadata.Add(new VppEntry(result.Name, breadcrumbs.ToString(), result.Order, 0, stream.Length, 0, hash));
+        Archiver.Metadata.Add(new VppEntry(result.Name, breadcrumbs.ToString(), result.Order, 0, stream.Length.ToString(), 0, hash));
         return result;
     }
 
@@ -128,7 +130,7 @@ public class PackHandler(FormatManager formatManager, FileManager fileManager, I
         }
 
         await using var readStream = pair.OpenRead();
-        var hash = message.Hash ? await Utils.ComputeHash(readStream) : string.Empty;
+        var hash = message.Hash ? await Utils.ComputeHash(readStream, token) : string.Empty;
         Archiver.Metadata.Add(new PegArchive(archive.Name, relativePath, readStream.Size, archive.Align, hash, files.Count));
         log.LogInformation("Packed {path}", relativePath);
 
@@ -152,9 +154,9 @@ public class PackHandler(FormatManager formatManager, FileManager fileManager, I
         var stream = file.OpenRead();
         var textureData = await imageConverter.ImageToTexture(stream, imageFormat, stub, token);
         var result = stub with {Data = textureData};
-        var hash = doHash ? await Utils.ComputeHash(result.Data) : string.Empty;
+        var hash = doHash ? await Utils.ComputeHash(result.Data, token) : string.Empty;
         var breadcrumbs = parentBreadcrumbs.Descend(result.Name);
-        Archiver.Metadata.Add(new VppEntry(result.Name, breadcrumbs.ToString(), result.Order, 0, result.Data.Length, 0, hash));
+        Archiver.Metadata.Add(new VppEntry(result.Name, breadcrumbs.ToString(), result.Order, 0, result.Data.Length.ToString(), 0, hash));
         return result;
     }
 }

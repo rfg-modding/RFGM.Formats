@@ -1,4 +1,4 @@
-namespace RFGM.Archiver.Models;
+namespace RFGM.Archiver.Models.Metadata;
 
 public record PegArchive(string Name, string RelativePath, string Length, int Align, string Hash, int Entries) : IMetadata
 {

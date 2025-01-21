@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
 using System.IO.Abstractions;
+using RFGM.Archiver.Models.Metadata;
+using RFGM.Archiver.Services;
 using RFGM.Formats;
 using RFGM.Formats.Peg;
 
-namespace RFGM.Archiver.Models;
+namespace RFGM.Archiver.Models.Messages;
 
 public record UnpackMessage(IFileInfo Source, string FileGlob, Breadcrumbs Breadcrumbs, IDirectoryInfo OutputPath, ImmutableHashSet<FileFormat> Formats, ImmutableHashSet<ImageFormat> Textures, bool XmlFormat, bool Recursive, bool Metadata, bool Hash, bool Force) : IMessage
 {

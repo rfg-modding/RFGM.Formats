@@ -3,6 +3,8 @@ using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using Microsoft.IO;
 using RFGM.Archiver.Models;
+using RFGM.Archiver.Models.Messages;
+using RFGM.Archiver.Models.Metadata;
 using RFGM.Formats;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
@@ -18,11 +20,19 @@ public class CollectMetadataHandler(FormatManager formatManager, RecyclableMemor
     {
         try
         {
-            log.LogInformation("Reading {name}", message.Name);
+            log.LogInformation("Collecting {name} (secondary present = {})", message.Name, message.Secondary is not null);
+            ArgumentOutOfRangeException.ThrowIfNotEqual(message.Source.Position, 0);
+            ArgumentOutOfRangeException.ThrowIfNotEqual(message.Secondary?.Position ?? 0, 0);
             var format = formatManager.GuessFormatByExtension(message.Name);
             if (format == FileFormat.Unsupported)
             {
                 log.LogTrace("Unsupported format [{path}]", message.Name);
+                return [];
+            }
+
+            if (FormatManager.PairedFormats.Contains(format) && message.Secondary is null)
+            {
+                log.LogTrace("Skip [{path}] without secondary stream", message.Name);
                 return [];
             }
 
@@ -59,61 +69,41 @@ public class CollectMetadataHandler(FormatManager formatManager, RecyclableMemor
             throw new InvalidOperationException($"Unexpected secondary stream");
         }
 
-        var reader = new VppReader();
-        var hash = message.Hash ? await Utils.ComputeHash(message.Source) : string.Empty;
+        var reader = new VppReader(message.OptimizeFor);
         var logicalArchive = await Task.Run(() => reader.Read(message.Source, message.Name, token), token);
         var entries = logicalArchive.LogicalFiles.ToList();
         var breadcrumbs = message.Breadcrumbs.Descend(logicalArchive.Name);
         var relativePath = breadcrumbs.ToString();
-        Archiver.Metadata.Add(new VppArchive(logicalArchive.Name, relativePath, logicalArchive.Mode, message.Source.Length, hash, entries.Count));
-        var progress = new ProgressLogger($"Reading {relativePath}", entries.Count, log);
         var result = new List<IMessage>();
+        result.Add(new BuildMetadataMessage(logicalArchive, message.Breadcrumbs, Utils.MakeDeepOwnCopy(message.Source), entries.Count, message.Hash));
+        var progress = new ProgressLogger($"Reading {relativePath}", entries.Count, log);
         foreach (var logicalFile in entries)
         {
             token.ThrowIfCancellationRequested();
-            var item = await ReadVppEntry(logicalFile, entries, breadcrumbs, message.Hash, token);
-            if (item != null)
+            result.Add(new BuildMetadataMessage(logicalFile, breadcrumbs, Utils.MakeDeepOwnCopy(logicalFile.Content), 0, message.Hash));
+            result.Add(new CollectMetadataMessage(Utils.MakeDeepOwnCopy(logicalFile.Content), null, logicalFile.Name, breadcrumbs, message.Hash, message.OptimizeFor));
+            var secondary = LocateSecondary(logicalFile, entries);
+            if (secondary != null)
             {
-                result.Add(item);
+                result.Add(new CollectMetadataMessage(Utils.MakeDeepOwnCopy(logicalFile.Content), Utils.MakeDeepOwnCopy(secondary.Content), logicalFile.Name, breadcrumbs, message.Hash, message.OptimizeFor));
             }
+
             progress.Tick();
         }
         return result;
     }
 
-    private async Task<CollectMetadataMessage?> ReadVppEntry(LogicalFile logicalFile, IReadOnlyList<LogicalFile> entries, Breadcrumbs parentBreadcrumbs, bool hash, CancellationToken token)
+    private LogicalFile? LocateSecondary(LogicalFile logicalFile, IReadOnlyList<LogicalFile> entries)
     {
-        var breadcrumbs = parentBreadcrumbs.Descend(logicalFile.Name);
-        var relativePath = breadcrumbs.ToString();
-        var ms = streamManager.GetStream($"{relativePath}_{Guid.NewGuid()}");
-        await logicalFile.Content.CopyToAsync(ms, token);
-        ms.Seek(0, SeekOrigin.Begin);
-        var entryHash = hash ? await Utils.ComputeHash(ms) : string.Empty;
-        log.LogDebug("Copied [{path}] to memory", logicalFile.Name);
-        Archiver.Metadata.Add(new VppEntry(logicalFile.Name, relativePath, logicalFile.Order, logicalFile.Offset, ms.Length, logicalFile.CompressedSize, entryHash));
-
         var cpu = PairedFiles.GetCpuFileName(logicalFile.Name);
         var gpu = PairedFiles.GetGpuFileName(logicalFile.Name);
         var gpuEntry = entries.Skip(logicalFile.Order).FirstOrDefault(x => x.Name == gpu);
         if (logicalFile.Name == cpu && gpuEntry != null)
         {
-            var tag = $"{parentBreadcrumbs.Descend(gpuEntry.Name)}_secondary_{Guid.NewGuid()}";
-            var ms2 = streamManager.GetStream(tag);
-            await gpuEntry.Content.CopyToAsync(ms2, token);
-            ms2.Seek(0, SeekOrigin.Begin);
-            log.LogDebug("Copied [{path}] to memory as secondary stream", gpuEntry.Name);
-            return new CollectMetadataMessage(ms, ms2, logicalFile.Name, parentBreadcrumbs, hash);
+            return gpuEntry;
         }
 
-        if (logicalFile.Name == gpu)
-        {
-            // avoid processing secondary file as container
-            log.LogDebug("Skipped [{path}] as secondary file", logicalFile.Name);
-            await ms.DisposeAsync();
-            return null;
-        }
-
-        return new CollectMetadataMessage(ms, null, logicalFile.Name, parentBreadcrumbs, hash);
+        return null;
     }
 
     private async Task<IEnumerable<IMessage>> ReadPeg(CollectMetadataMessage message, CancellationToken token)
@@ -125,35 +115,22 @@ public class CollectMetadataHandler(FormatManager formatManager, RecyclableMemor
 
         var reader = new PegReader();
         var streams = new PairedStreams(message.Source, message.Secondary);
-        var hash = message.Hash ? await Utils.ComputeHash(streams) : string.Empty;
         var logicalArchive = await Task.Run(() =>reader.Read(streams.Cpu, streams.Gpu, message.Name, token), token);
         var breadcrumbs = message.Breadcrumbs.Descend(logicalArchive.Name);
         var relativePath = breadcrumbs.ToString();
         var entries = logicalArchive.LogicalTextures.ToList();
-        Archiver.Metadata.Add(new PegArchive(logicalArchive.Name, relativePath, streams.Size, logicalArchive.Align, hash, entries.Count));
-        var progress = new ProgressLogger($"Reading {relativePath}", entries.Count, log);
         var result = new List<IMessage>();
+        result.Add(new BuildMetadataMessage(logicalArchive, message.Breadcrumbs, Utils.MakeDeepOwnCopy(streams), entries.Count, message.Hash));
+        var progress = new ProgressLogger($"Reading {relativePath}", entries.Count, log);
         foreach (var logicalFile in entries)
         {
             token.ThrowIfCancellationRequested();
-            var item = await ReadPegEntry(logicalFile, breadcrumbs, message.Hash, token);
-            result.Add(item);
+            // peg entries can't contain nested containers or pairs
+            result.Add(new CollectMetadataMessage(Utils.MakeDeepOwnCopy(logicalFile.Data), null, logicalFile.Name, breadcrumbs, message.Hash, message.OptimizeFor));
+            result.Add(new BuildMetadataMessage(logicalFile, breadcrumbs, Utils.MakeDeepOwnCopy(logicalFile.Data), 0, message.Hash));
             progress.Tick();
         }
         return result;
     }
 
-    private async Task<IMessage> ReadPegEntry(LogicalTexture logicalFile, Breadcrumbs parentBreadcrumbs, bool hash, CancellationToken token)
-    {
-        var breadcrumbs = parentBreadcrumbs.Descend(logicalFile.Name);
-        var relativePath = breadcrumbs.ToString();
-        var ms = streamManager.GetStream($"{relativePath}_{Guid.NewGuid()}");
-        await logicalFile.Data.CopyToAsync(ms, token);
-        ms.Seek(0, SeekOrigin.Begin);
-        var entryHash = hash ? await Utils.ComputeHash(ms) : string.Empty;
-        Archiver.Metadata.Add(new PegEntry(logicalFile.Name, relativePath, logicalFile.Order, (uint) logicalFile.DataOffset, logicalFile.Data.Length, logicalFile.Size, logicalFile.Source, logicalFile.AnimTiles, logicalFile.Format, logicalFile.Flags, logicalFile.MipLevels, logicalFile.Align, entryHash));
-        log.LogDebug("Copied [{path}] to memory", logicalFile.Name);
-        // peg entries can't contain nested containers or pairs
-        return new CollectMetadataMessage(ms, null, logicalFile.Name, parentBreadcrumbs, hash);
-    }
 }

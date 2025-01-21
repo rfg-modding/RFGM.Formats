@@ -1,13 +1,13 @@
 using RFGM.Formats.Peg.Models;
 
-namespace RFGM.Archiver.Models;
+namespace RFGM.Archiver.Models.Metadata;
 
 public record PegEntry(
     string Name,
     string RelativePath,
     int Order,
     uint Offset,
-    long Length,
+    string Length,
     Size Size,
     Size Source,
     Size AnimTiles,

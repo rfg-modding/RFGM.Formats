@@ -3,19 +3,12 @@ using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.DependencyInjection;
-using RFGM.Archiver.Models;
-using RFGM.Formats;
 
 namespace RFGM.Archiver.Args;
 
-public class CollectMetadata : Command
+public class Test : Command
 {
     private readonly Argument<List<string>> inputArg = new("archive", "any supported archive to unpack, or a folder");
-
-    private readonly Option<bool> hashArg = new([
-            "--hash"
-        ],
-        "compute hashes");
 
     private readonly Option<int> parallelArg = new([
             "-p",
@@ -27,33 +20,22 @@ public class CollectMetadata : Command
         ArgumentHelpName = "N"
     };
 
-    private readonly Option<OptimizeFor> optimizeForArg = new([
-            "-o",
-            "--optimizeFor"
-        ],
-        "optimization profile");
+    public override string? Description => @"Run test logic for debugging";
 
-    public override string? Description => @"Parse all supported archives and containers, write information to single file for analysis
-Supported formats: " + string.Join(" ", Constants.KnownVppExtensions.Concat(Constants.KnownPegExtensions));
-
-    public CollectMetadata() : base(nameof(CollectMetadata).ToLowerInvariant())
+    public Test() : base(nameof(Test).ToLowerInvariant())
     {
-
+        IsHidden = true;
         AddArgument(inputArg);
         AddOption(parallelArg);
-        AddOption(optimizeForArg);
-        AddOption(hashArg);
         Handler = CommandHandler.Create(Handle);
     }
 
     private async Task<int> Handle(InvocationContext context, CancellationToken token)
     {
         var input = context.ParseResult.GetValueForArgument(inputArg);
-        var hash = context.ParseResult.GetValueForOption(this.hashArg);
         var parallel = context.ParseResult.GetValueForOption(this.parallelArg);
-        var optimizeFor = context.ParseResult.GetValueForOption(this.optimizeForArg);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
-        await archiver.CollectMetadata(input, hash, parallel, optimizeFor, token);
+        await archiver.Test(input, parallel, token);
         return 0;
     }
 }

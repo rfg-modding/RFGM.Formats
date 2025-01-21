@@ -11,9 +11,10 @@ namespace RFGM.Formats.Streams;
 public sealed class StreamView(Stream underlyingStream, long viewStart, long viewLength, string name)
     : Stream
 {
-    public bool IsStreamOwner { get; set; } = false;
+    public bool IsStreamOwner { get; init; } = false;
 
     private bool isClosed;
+    private long position = 0;
 
     public string Name => name;
 
@@ -25,7 +26,17 @@ public sealed class StreamView(Stream underlyingStream, long viewStart, long vie
 
     public override long Length { get; } = viewLength;
 
-    public override long Position { get; set; } = 0;
+    public override long Position
+    {
+        get => position;
+        set
+        {
+            lock (UnderlyingStream)
+            {
+                position = value;
+            }
+        }
+    }
 
     public Stream UnderlyingStream { get; } = underlyingStream;
 
@@ -35,93 +46,86 @@ public sealed class StreamView(Stream underlyingStream, long viewStart, long vie
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        //Console.WriteLine($">>> READ ARGS {offset} {count} (view {name})");
-        if (Position >= Length)
+        lock (UnderlyingStream)
         {
-            return 0;
+            if (Position >= Length)
+            {
+                return 0;
+            }
+
+            // subtracting extra bytes to avoid overflow
+            var extraBytes = Position + count >= Length
+                ? (int) (Position + count - Length)
+                : 0;
+
+            if (UnderlyingStream.Position != ViewStart + Position)
+            {
+                if (UnderlyingStream is not InflaterInputStream)
+                {
+                    UnderlyingStream.Seek(ViewStart + Position, SeekOrigin.Begin);
+                }
+            }
+
+            var result = UnderlyingStream.Read(buffer, offset, count - extraBytes);
+            if (result > 0)
+            {
+                Position += result;
+            }
+
+            return result;
         }
-
-        // subtracting extra bytes to avoid overflow
-        var extraBytes = Position + count >= Length
-            ? (int) (Position + count - Length)
-            : 0;
-
-        if (UnderlyingStream.Position != ViewStart + Position)
-        {
-            //Console.WriteLine($">>> READ SEEK {ViewStart}+{Position} (view {name})");
-            UnderlyingStream.Seek(ViewStart + Position, SeekOrigin.Begin);
-        }
-
-        //Console.WriteLine($">>> READ UNDR {offset} {count-extraBytes} (view {name})");
-        var result = UnderlyingStream.Read(buffer, offset, count - extraBytes);
-        if (result > 0)
-        {
-            Position += result;
-        }
-
-        return result;
     }
 
     public override int ReadByte()
     {
-        if (Position + 1 >= ViewStart + Length)
-        {
-            return -1;
-        }
-
-        if (UnderlyingStream.Position != ViewStart + Position)
-        {
-            UnderlyingStream.Seek(ViewStart + Position, SeekOrigin.Begin);
-        }
-
-        var result = UnderlyingStream.ReadByte();
-        if (result > 0)
-        {
-            Position += result;
-        }
-
-        return result;
+        var oneByteArray = new byte[1];
+        int r = Read(oneByteArray, 0, 1);
+        return r == 0 ? -1 : oneByteArray[0];
     }
 
     public override long Seek(long offset, SeekOrigin origin)
     {
-        //Console.WriteLine($">>> SEEK VIEW {offset} {origin} (view {name})");
-        switch (origin)
+        lock (UnderlyingStream)
         {
-            case SeekOrigin.Begin:
-                if (offset < 0 || offset > Length)
-                {
-                    throw new InvalidOperationException($"Out of bounds: offset is {offset}, origin is {origin}, max length is {Length}");
-                }
+            switch (origin)
+            {
+                case SeekOrigin.Begin:
+                    if (offset < 0 || offset > Length)
+                    {
+                        throw new InvalidOperationException($"Out of bounds: offset is {offset}, origin is {origin}, max length is {Length}");
+                    }
 
-                Position = offset;
-                return UnderlyingStream.Seek(ViewStart + offset, SeekOrigin.Begin);
-            case SeekOrigin.Current:
-                if (Position + offset < 0 || Position + offset > Length)
-                {
-                    throw new InvalidOperationException($"Out of bounds: offset is {offset}, position is {Position}, origin is {origin}, max length is {Length}");
-                }
+                    Position = offset;
+                    return UnderlyingStream.Seek(ViewStart + offset, SeekOrigin.Begin);
+                case SeekOrigin.Current:
+                    if (Position + offset < 0 || Position + offset > Length)
+                    {
+                        throw new InvalidOperationException($"Out of bounds: offset is {offset}, position is {Position}, origin is {origin}, max length is {Length}");
+                    }
 
-                Position += offset;
-                return UnderlyingStream.Seek(Position, SeekOrigin.Begin);
-            case SeekOrigin.End:
-                if (offset > 0 || offset < -Length)
-                {
-                    throw new InvalidOperationException($"Out of bounds: offset is {offset}, origin is {origin}, max length is {Length}");
-                }
+                    Position += offset;
+                    return UnderlyingStream.Seek(Position, SeekOrigin.Begin);
+                case SeekOrigin.End:
+                    if (offset > 0 || offset < -Length)
+                    {
+                        throw new InvalidOperationException($"Out of bounds: offset is {offset}, origin is {origin}, max length is {Length}");
+                    }
 
-                Position = Length + offset;
-                return UnderlyingStream.Seek(Position, SeekOrigin.Begin);
-            default:
-                throw new ArgumentOutOfRangeException(nameof(origin), origin, null);
+                    Position = Length + offset;
+                    return UnderlyingStream.Seek(Position, SeekOrigin.Begin);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(origin), origin, null);
+            }
         }
     }
+
 
     public override void SetLength(long value) => throw new InvalidOperationException($"{nameof(StreamView)} is read-only");
 
     public override void Write(byte[] buffer, int offset, int count) => throw new InvalidOperationException($"{nameof(StreamView)} is read-only");
 
-    public override string ToString() => $"{nameof(StreamView),23} viewStart={ViewStart,10}, len={Length,10}, pos={Position,10}, owner={IsStreamOwner}, {name,20}\n\tunderlying={UnderlyingStream}";
+    public override string ToString() => $"{nameof(StreamView)}({Name}, {UnderlyingStream})";
+    //public override string ToString() => $"{nameof(StreamView),23} viewStart={ViewStart,10}, len={Length,10}, pos={Position,10}, owner={IsStreamOwner}, {name,20}\n\tunderlying={Utils.StreamToString(UnderlyingStream)}";
 
     protected override void Dispose(bool disposing)
     {
@@ -135,4 +139,7 @@ public sealed class StreamView(Stream underlyingStream, long viewStart, long vie
             UnderlyingStream.Dispose();
         }
     }
+
+    private string State => $"> {name} len={Length} pos={Position}";
+
 }

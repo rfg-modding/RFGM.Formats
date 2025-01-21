@@ -2,6 +2,8 @@ using System.IO.Abstractions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
+using RFGM.Archiver.Models.Messages;
+using RFGM.Archiver.Models.Metadata;
 using RFGM.Formats;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
@@ -39,9 +41,9 @@ public class UnpackHandler(FormatManager formatManager, FileManager fileManager,
 
     private async Task<IEnumerable<IMessage>> UnpackVpp(UnpackMessage message, CancellationToken token)
     {
-        var reader = new VppReader();
+        var reader = new VppReader(OptimizeFor.Speed);
         await using var stream = message.Source.OpenRead();
-        var hash = message.Hash ? await Utils.ComputeHash(stream) : string.Empty;
+        var hash = message.Hash ? await Utils.ComputeHash(stream, token) : string.Empty;
         var logicalArchive = await Task.Run(() => reader.Read(stream, message.Source.Name, token), token);
         var breadcrumbs = message.Breadcrumbs.Descend(logicalArchive.Name);
         var relativePath = breadcrumbs.ToString();
@@ -49,7 +51,7 @@ public class UnpackHandler(FormatManager formatManager, FileManager fileManager,
         var matcher = new Matcher(StringComparison.OrdinalIgnoreCase);
         matcher.AddInclude(message.FileGlob);
         var entries = logicalArchive.LogicalFiles.ToList();
-        Archiver.Metadata.Add(new VppArchive(logicalArchive.Name, relativePath, logicalArchive.Mode, stream.Length, hash, entries.Count));
+        Archiver.Metadata.Add(new VppArchive(logicalArchive.Name, relativePath, logicalArchive.Mode, stream.Length.ToString(), hash, entries.Count));
         var progress = new ProgressLogger($"Unpacking {relativePath}", entries.Count, log);
         foreach (var logicalFile in entries)
         {
@@ -75,13 +77,13 @@ public class UnpackHandler(FormatManager formatManager, FileManager fileManager,
     private async Task UnpackVppEntry(LogicalFile logicalFile, IDirectoryInfo destination, Breadcrumbs parentBreadcrumbs, bool force, bool hash, CancellationToken token)
     {
         var dstFile = fileManager.CreateFile(destination, logicalFile.UnpackName, force);
-        var entryHash = hash ? await Utils.ComputeHash(logicalFile.Content) : string.Empty;
+        var entryHash = hash ? await Utils.ComputeHash(logicalFile.Content, token) : string.Empty;
         var breadcrumbs = parentBreadcrumbs.Descend(logicalFile.Name);
         log.LogTrace($"Create file [{dstFile}]");
         dstFile.Create().Close();
         await using var dst = dstFile.OpenWrite();
         await logicalFile.Content.CopyToAsync(dst, token);
-        Archiver.Metadata.Add(new VppEntry(logicalFile.Name, breadcrumbs.ToString(), logicalFile.Order, logicalFile.Offset, logicalFile.Content.Length, logicalFile.CompressedSize, entryHash));
+        Archiver.Metadata.Add(new VppEntry(logicalFile.Name, breadcrumbs.ToString(), logicalFile.Order, logicalFile.Offset, logicalFile.Content.Length.ToString(), logicalFile.CompressedSize, entryHash));
         log.LogDebug("Unpacked [{path}]", dstFile.FullName);
     }
 
@@ -95,7 +97,7 @@ public class UnpackHandler(FormatManager formatManager, FileManager fileManager,
         }
         await using var streams = pegFiles.OpenRead();
         var logicalArchive = await Task.Run(() =>reader.Read(streams.Cpu, streams.Gpu, pegFiles.Name, token), token);
-        var hash = message.Hash ? await Utils.ComputeHash(streams) : string.Empty;
+        var hash = message.Hash ? await Utils.ComputeHash(streams, token) : string.Empty;
         var breadcrumbs = message.Breadcrumbs.Descend(logicalArchive.Name);
         var relativePath = breadcrumbs.ToString();
         var destination = fileManager.CreateSubDirectory(message.OutputPath, logicalArchive.UnpackName);
@@ -132,13 +134,13 @@ public class UnpackHandler(FormatManager formatManager, FileManager fileManager,
     {
         var dstFile = fileManager.CreateFile(destination, logicalFile.UnpackName(imageFormat), force);
         var data = await imageConverter.TextureToImage(logicalFile, imageFormat, token);
-        var entryHash = hash ? await Utils.ComputeHash(data) : string.Empty;
+        var entryHash = hash ? await Utils.ComputeHash(data, token) : string.Empty;
         var breadcrumbs = parentBreadcrumbs.Descend(logicalFile.Name);
         log.LogTrace($"Create file [{dstFile}]");
         dstFile.Create().Close();
         await using var dst = dstFile.OpenWrite();
         await data.CopyToAsync(dst, token);
-        Archiver.Metadata.Add(new PegEntry(logicalFile.Name, breadcrumbs.ToString(), logicalFile.Order, (uint) logicalFile.DataOffset, logicalFile.Data.Length, logicalFile.Size, logicalFile.Source, logicalFile.AnimTiles, logicalFile.Format, logicalFile.Flags, logicalFile.MipLevels, logicalFile.Align, entryHash));
+        Archiver.Metadata.Add(new PegEntry(logicalFile.Name, breadcrumbs.ToString(), logicalFile.Order, (uint) logicalFile.DataOffset, logicalFile.Data.Length.ToString(), logicalFile.Size, logicalFile.Source, logicalFile.AnimTiles, logicalFile.Format, logicalFile.Flags, logicalFile.MipLevels, logicalFile.Align, entryHash));
         log.LogDebug("Unpacked [{path}]", dstFile.FullName);
     }
 }

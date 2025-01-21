@@ -1,12 +1,13 @@
 using System.Collections.Immutable;
 using System.IO.Abstractions;
 using Microsoft.Extensions.Logging;
+using RFGM.Archiver.Models;
 using RFGM.Formats;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
 using RFGM.Formats.Vpp.Models;
 
-namespace RFGM.Archiver.Models;
+namespace RFGM.Archiver.Services;
 
 public class FormatManager(IFileSystem fileSystem, ILogger<FormatManager> log)
 {
@@ -26,6 +27,11 @@ public class FormatManager(IFileSystem fileSystem, ILogger<FormatManager> log)
     public static readonly ImmutableHashSet<FileFormat> CanWritePartial = new HashSet<FileFormat>
     {
         FileFormat.Str2,
+    }.ToImmutableHashSet();
+
+    public static readonly ImmutableHashSet<FileFormat> PairedFormats = new HashSet<FileFormat>
+    {
+        FileFormat.Peg,
     }.ToImmutableHashSet();
 
     public FileFormat GuessFormatByExtension(IFileSystemInfo item) => GuessFormatByExtension(item.Name);

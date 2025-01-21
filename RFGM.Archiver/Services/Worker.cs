@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IO;
 using RFGM.Archiver.Models;
+using RFGM.Archiver.Models.Messages;
 
 namespace RFGM.Archiver.Services;
 
@@ -109,6 +110,7 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemorySt
 
     private async Task<IEnumerable<IMessage>> HandleInternal(IServiceProvider services, IMessage message, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         var handlerType = typeof(IHandler<>).MakeGenericType(message.GetType());
         var service = services.GetService(handlerType);
         if (service is null)
