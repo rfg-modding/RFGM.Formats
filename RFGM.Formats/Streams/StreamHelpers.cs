@@ -215,6 +215,18 @@ namespace RFGM.Formats.Streams
             stream.Write(bytes, 0, bytes.Length);
             return bytes.Length;
         }
+
+        public static string ReadLengthPrefixedString16(this Stream stream)
+        {
+            short length = stream.ReadInt16();
+            return stream.ReadAsciiString(length);
+        }
+
+        public static void WriteLengthPrefixedString16(this Stream stream, string value)
+        {
+            stream.WriteInt16((short)value.Length);
+            stream.WriteAsciiString(value);
+        }
         #endregion
 
         #region Float helpers

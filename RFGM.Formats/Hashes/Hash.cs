@@ -69,6 +69,18 @@ public static class Hash
         return ~hash;
     }
 
+    public static uint HashVolitionCRCAlt(byte[] input)
+    {
+        uint hash = ~0u;
+
+        foreach (byte b in input)
+        {
+            hash = hash >> 8 ^ VolitionCrcTable[(b ^ hash) & 255];
+        }
+
+        return ~hash;
+    }
+
     public static uint HashVolition(string input)
     {
         uint hash = 0;
