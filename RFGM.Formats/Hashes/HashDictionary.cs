@@ -21,7 +21,7 @@ public class HashDictionary
             foreach (string str in _sourceStrings)
             {
                 _stringDictionary0[Hash.HashVolitionCRC(str, 0)] = str;
-                _stringDictionary1[Hash.HashVolitionCRCAlt(str, 1)] = str;
+                _stringDictionary1[Hash.HashVolitionCRCAlt(str)] = str;
                 _stringDictionary2[Hash.HashVolition(str)] = str;
             }
             
