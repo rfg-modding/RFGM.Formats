@@ -1,5 +1,6 @@
 // This is a generated file! Please edit source .ksy file and use kaitai-struct-compiler to rebuild
 
+using System.Text;
 using Kaitai;
 
 namespace RFGM.Formats.Peg.Models
@@ -350,7 +351,7 @@ namespace RFGM.Formats.Peg.Models
         }
         public partial class EntryName : KaitaiStruct
         {
-            public EntryName(int p_i, KaitaiStream p__io, RfgCpeg.EntryNamesHolder p__parent = null, RfgCpeg p__root = null) : base(p__io)
+            public EntryName(int p_i, KaitaiStream p__io, EntryNamesHolder p__parent = null, RfgCpeg p__root = null) : base(p__io)
             {
                 m_parent = p__parent;
                 m_root = p__root;
@@ -373,25 +374,25 @@ namespace RFGM.Formats.Peg.Models
                 {
                     if (f_value)
                         return _value;
-                    _value = System.Text.Encoding.GetEncoding("ASCII").GetString(m_io.ReadBytesTerm(0, false, true, true));
+                    _value = Encoding.GetEncoding("ASCII").GetString(m_io.ReadBytesTerm(0, false, true, true));
                     f_value = true;
                     return _value;
                 }
             }
             private int _i;
             private RfgCpeg m_root;
-            private RfgCpeg.EntryNamesHolder m_parent;
+            private EntryNamesHolder m_parent;
 
             /// <summary>
             /// Item order in file, starts with 0
             /// </summary>
             public int I { get { return _i; } }
             public RfgCpeg M_Root { get { return m_root; } }
-            public RfgCpeg.EntryNamesHolder M_Parent { get { return m_parent; } }
+            public EntryNamesHolder M_Parent { get { return m_parent; } }
         }
         public partial class EntryData : KaitaiStruct
         {
-            public EntryData(int p_i, KaitaiStream p__io, RfgCpeg.EntryDataHolder p__parent = null, RfgCpeg p__root = null) : base(p__io)
+            public EntryData(int p_i, KaitaiStream p__io, EntryDataHolder p__parent = null, RfgCpeg p__root = null) : base(p__io)
             {
                 m_parent = p__parent;
                 m_root = p__root;
@@ -529,10 +530,10 @@ namespace RFGM.Formats.Peg.Models
             }
             private int _i;
             private RfgCpeg m_root;
-            private RfgCpeg.EntryDataHolder m_parent;
+            private EntryDataHolder m_parent;
             public int I { get { return _i; } }
             public RfgCpeg M_Root { get { return m_root; } }
-            public RfgCpeg.EntryDataHolder M_Parent { get { return m_parent; } }
+            public EntryDataHolder M_Parent { get { return m_parent; } }
         }
         public partial class EntryDataHolder : KaitaiStruct
         {

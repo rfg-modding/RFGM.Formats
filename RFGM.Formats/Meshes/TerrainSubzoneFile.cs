@@ -32,8 +32,8 @@ public class TerrainSubzoneFile(string name)
     public List<RfgMaterial> RoadMaterials = new();
     public List<List<string>> RoadTextures = new();
 
-    public bool HasStitchMesh { get; private set; } = false;
-    public bool HasRoadMesh { get; private set; } = false;
+    public bool HasStitchMesh { get; private set; }
+    public bool HasRoadMesh { get; private set; }
     
     public void ReadHeader(Stream cpuFile)
     {
@@ -50,13 +50,13 @@ public class TerrainSubzoneFile(string name)
             throw new Exception($"Unsupported terrain subzone file version. Expected 31, found {Version}");
         }
 
-        uint stitchPieceNamesSize = cpuFile.ReadUInt32();
+        var stitchPieceNamesSize = cpuFile.ReadUInt32();
         StitchPieceNames = cpuFile.ReadSizedStringList(stitchPieceNamesSize);
         cpuFile.AlignRead(4);
         
         Data.Read(cpuFile);
 
-        for (int i = 0; i < Data.PatchCount; i++)
+        for (var i = 0; i < Data.PatchCount; i++)
         {
             TerrainPatch patch = new();
             patch.Read(cpuFile);
@@ -68,13 +68,13 @@ public class TerrainSubzoneFile(string name)
         cpuFile.AlignRead(4);
         
         //Read stitch piece data
-        for (int i = 0; i < Data.NumStitchPieces; i++)
+        for (var i = 0; i < Data.NumStitchPieces; i++)
         {
             TerrainStitchInstance stitch = new();
             stitch.Read(cpuFile);
             StitchInstances.Add(stitch);
         }
-        for (int i = 0; i < Data.NumStitchPieces; i++)
+        for (var i = 0; i < Data.NumStitchPieces; i++)
         {
             StitchPieceNames2.Add(cpuFile.ReadAsciiNullTerminatedString());
             cpuFile.AlignRead(4);
@@ -99,14 +99,14 @@ public class TerrainSubzoneFile(string name)
             
             //TODO: Come up with a less hacky way of doing this
             //Skip unknown data before stitch mesh header that has indices which can be parsed
-            uint i = cpuFile.ReadUInt32();
+            var i = cpuFile.ReadUInt32();
             while (true)
             {
                 if (cpuFile.Peek<byte>() == 0)
                 {
                     cpuFile.Skip(4);
                 }
-                else if ((uint)cpuFile.Peek<byte>() == i + 1)
+                else if (cpuFile.Peek<byte>() == i + 1)
                 {
                     cpuFile.Skip(4);
                     i++;
@@ -133,14 +133,14 @@ public class TerrainSubzoneFile(string name)
         if (Data.NumRoadDecalMeshes > 0)
         {
             HasRoadMesh = true;
-            for (int i = 0; i < Data.NumRoadDecalMeshes; i++)
+            for (var i = 0; i < Data.NumRoadDecalMeshes; i++)
             {
                 RoadMeshData roadMesh = new();
                 roadMesh.Read(cpuFile);
                 RoadMeshesData.Add(roadMesh);
             }
 
-            for (int i = 0; i < Data.NumRoadDecalMeshes; i++)
+            for (var i = 0; i < Data.NumRoadDecalMeshes; i++)
             {
                 MeshConfig roadMeshConfig = new();
 
@@ -155,7 +155,7 @@ public class TerrainSubzoneFile(string name)
                     cpuFile.Skip(4);
                 }
 
-                uint textureNamesSize = cpuFile.ReadUInt32();
+                var textureNamesSize = cpuFile.ReadUInt32();
                 List<string> textureNames = cpuFile.ReadSizedStringList(textureNamesSize);
                 RoadTextures.Add(textureNames);
                 
@@ -179,7 +179,7 @@ public class TerrainSubzoneFile(string name)
             throw new Exception("You must call TerrainSubzoneFile.ReadHeader() before calling TerrainSubzoneFile.ReadData() on TerrainSubzoneFile");
         }
 
-        uint startCRC = gpuFile.ReadUInt32();
+        var startCRC = gpuFile.ReadUInt32();
         if (startCRC != TerrainMeshConfig.VerificationHash)
         {
             throw new Exception($"Start CRC mismatch while reading terrain mesh in gtmesh_pc file {Name}");
@@ -187,16 +187,16 @@ public class TerrainSubzoneFile(string name)
         
         //Read indices
         gpuFile.Seek(TerrainMeshConfig.IndicesOffset, SeekOrigin.Begin);
-        byte[] indices = new byte[TerrainMeshConfig.NumIndices * TerrainMeshConfig.IndexSize];
+        var indices = new byte[TerrainMeshConfig.NumIndices * TerrainMeshConfig.IndexSize];
         gpuFile.ReadExactly(indices);
         
         //Read vertices
         gpuFile.Seek(TerrainMeshConfig.VerticesOffset, SeekOrigin.Begin);
-        byte[] vertices = new byte[TerrainMeshConfig.NumVertices * TerrainMeshConfig.VertexStride0];
+        var vertices = new byte[TerrainMeshConfig.NumVertices * TerrainMeshConfig.VertexStride0];
         gpuFile.ReadExactly(vertices);
         
         //Sanity check. CRC at the end of the mesh data should match the start
-        uint endCRC = gpuFile.ReadUInt32();
+        var endCRC = gpuFile.ReadUInt32();
         if (startCRC != endCRC)
         {
             throw new Exception($"End CRC mismatch while reading terrain mesh in gtmesh_pc file {Name}");
@@ -223,8 +223,8 @@ public class TerrainSubzoneFile(string name)
         
         //Start of stitch mesh
         gpuFile.AlignRead(16);
-        long startPos = gpuFile.Position;
-        uint startCRC = gpuFile.ReadUInt32();
+        var startPos = gpuFile.Position;
+        var startCRC = gpuFile.ReadUInt32();
         if (startCRC != StitchMeshConfig.VerificationHash)
         {
             throw new Exception($"Start CRC mismatch while reading stitch mesh in gtmesh_pc file {Name}");
@@ -232,15 +232,15 @@ public class TerrainSubzoneFile(string name)
         
         //Read indices
         gpuFile.Seek(startPos + StitchMeshConfig.IndicesOffset, SeekOrigin.Begin);
-        byte[] indices = new byte[StitchMeshConfig.NumIndices * StitchMeshConfig.IndexSize];
+        var indices = new byte[StitchMeshConfig.NumIndices * StitchMeshConfig.IndexSize];
         gpuFile.ReadExactly(indices);
         
         //Read vertices
         gpuFile.Seek(startPos + StitchMeshConfig.VerticesOffset, SeekOrigin.Begin);
-        byte[] vertices = new byte[StitchMeshConfig.NumVertices * StitchMeshConfig.VertexStride0];
+        var vertices = new byte[StitchMeshConfig.NumVertices * StitchMeshConfig.VertexStride0];
         gpuFile.ReadExactly(vertices);
 
-        uint endCRC = gpuFile.ReadUInt32();
+        var endCRC = gpuFile.ReadUInt32();
         if (startCRC != endCRC)
         {
             throw new Exception($"End CRC mismatch while reading stitch mesh in gtmesh_pc file {Name}");
@@ -267,7 +267,7 @@ public class TerrainSubzoneFile(string name)
         
         //Skip stitch mesh data
         gpuFile.AlignRead(16);
-        long stitchStartPos = gpuFile.Position;
+        var stitchStartPos = gpuFile.Position;
         gpuFile.Seek(stitchStartPos + StitchMeshConfig.VerticesOffset, SeekOrigin.Begin);
         gpuFile.Skip(StitchMeshConfig.NumVertices * StitchMeshConfig.VertexStride0);
         gpuFile.Skip(4); //Skip verification hash
@@ -278,8 +278,8 @@ public class TerrainSubzoneFile(string name)
         {
             var config = RoadMeshesConfig[i];
             gpuFile.AlignRead(16);
-            long startPos = gpuFile.Position;
-            uint startCRC = gpuFile.ReadUInt32();
+            var startPos = gpuFile.Position;
+            var startCRC = gpuFile.ReadUInt32();
             if (startCRC != config.VerificationHash)
             {
                 throw new Exception($"Start CRC mismatch while reading road mesh {i} in gtmesh_pc file {Name}");
@@ -288,15 +288,15 @@ public class TerrainSubzoneFile(string name)
             //Read index buffer
             gpuFile.AlignRead(16);
             gpuFile.Seek(startPos + config.IndicesOffset, SeekOrigin.Begin);
-            byte[] indices = new byte[config.NumIndices * config.IndexSize];
+            var indices = new byte[config.NumIndices * config.IndexSize];
             gpuFile.ReadExactly(indices);
 
             //Read vertex buffer
             gpuFile.Seek(startPos + config.VerticesOffset, SeekOrigin.Begin);
-            byte[] vertices = new byte[config.NumVertices * config.VertexStride0];
+            var vertices = new byte[config.NumVertices * config.VertexStride0];
             gpuFile.ReadExactly(vertices);
 
-            uint endCRC = gpuFile.ReadUInt32();
+            var endCRC = gpuFile.ReadUInt32();
             if (startCRC != endCRC)
             {
                 throw new Exception($"End CRC mismatch while reading road mesh {i} in gtmesh_pc file {Name}");

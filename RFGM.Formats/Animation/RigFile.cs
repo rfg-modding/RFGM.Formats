@@ -25,32 +25,32 @@ public class RigFile
             throw new Exception("Unexpected non zero offset in .rig_pc file when 0 is expected.");
         }
 
-        for (int i = 0; i < Header.NumBones; i++)
+        for (var i = 0; i < Header.NumBones; i++)
         {
             BoneChecksums.Add(stream.ReadUInt32());
         }
 
-        for (int i = 0; i < Header.NumBones; i++)
+        for (var i = 0; i < Header.NumBones; i++)
         {
             AnimBone bone = new();
             bone.Read(stream);
             Bones.Add(bone);
         }
 
-        for (int i = 0; i < Header.NumTags; i++)
+        for (var i = 0; i < Header.NumTags; i++)
         {
             AnimTag tag = new();
             tag.Read(stream);
             Tags.Add(tag);
         }
 
-        long namesBaseOffset = stream.Position;
-        foreach (AnimBone bone in Bones)
+        var namesBaseOffset = stream.Position;
+        foreach (var bone in Bones)
         {
             stream.Seek(namesBaseOffset + bone.NameOffset, SeekOrigin.Begin);
             bone.Name = stream.ReadAsciiNullTerminatedString();
         }
-        foreach (AnimTag tag in Tags)
+        foreach (var tag in Tags)
         {
             stream.Seek(namesBaseOffset + tag.NameOffset, SeekOrigin.Begin);
             tag.Name = stream.ReadAsciiNullTerminatedString();

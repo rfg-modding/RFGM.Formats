@@ -1,5 +1,6 @@
 ﻿// This is a generated file! Please edit source .ksy file and use kaitai-struct-compiler to rebuild
 
+using System.Text;
 using Kaitai;
 
 namespace RFGM.Formats.Vpp.Models
@@ -175,8 +176,8 @@ namespace RFGM.Formats.Vpp.Models
                 {
                     throw new ValidationNotEqualError(new byte[] { 3, 0, 0, 0 }, Version, M_Io, "/types/header_block/seq/1");
                 }
-                _shortName = System.Text.Encoding.GetEncoding("ASCII").GetString(KaitaiStream.BytesTerminate(m_io.ReadBytes(65), 0, false));
-                _pathName = System.Text.Encoding.GetEncoding("ASCII").GetString(KaitaiStream.BytesTerminate(m_io.ReadBytes(256), 0, false));
+                _shortName = Encoding.GetEncoding("ASCII").GetString(KaitaiStream.BytesTerminate(m_io.ReadBytes(65), 0, false));
+                _pathName = Encoding.GetEncoding("ASCII").GetString(KaitaiStream.BytesTerminate(m_io.ReadBytes(256), 0, false));
                 __unnamed4 = m_io.ReadBytes(3);
                 _flags = new HeaderFlags(m_io, this, m_root);
                 __unnamed6 = m_io.ReadBytes(4);
@@ -194,7 +195,7 @@ namespace RFGM.Formats.Vpp.Models
                     return new HeaderFlags(new KaitaiStream(fileName));
                 }
 
-                public HeaderFlags(KaitaiStream p__io, RfgVpp.HeaderBlock p__parent = null, RfgVpp p__root = null) : base(p__io)
+                public HeaderFlags(KaitaiStream p__io, HeaderBlock p__parent = null, RfgVpp p__root = null) : base(p__io)
                 {
                     m_parent = p__parent;
                     m_root = p__root;
@@ -215,7 +216,7 @@ namespace RFGM.Formats.Vpp.Models
                 private bool _condensed;
                 private byte[] _unknownFlags;
                 private RfgVpp m_root;
-                private RfgVpp.HeaderBlock m_parent;
+                private HeaderBlock m_parent;
 
                 /// <summary>
                 /// file uses ZLIB compression
@@ -228,7 +229,7 @@ namespace RFGM.Formats.Vpp.Models
                 public bool Condensed { get { return _condensed; } }
                 public byte[] UnknownFlags { get { return _unknownFlags; } }
                 public RfgVpp M_Root { get { return m_root; } }
-                public RfgVpp.HeaderBlock M_Parent { get { return m_parent; } }
+                public HeaderBlock M_Parent { get { return m_parent; } }
             }
             private bool f_isLarge;
             private bool _isLarge;
@@ -351,7 +352,7 @@ namespace RFGM.Formats.Vpp.Models
         }
         public partial class EntryName : KaitaiStruct
         {
-            public EntryName(int p_i, KaitaiStream p__io, RfgVpp.EntryNamesHolder p__parent = null, RfgVpp p__root = null) : base(p__io)
+            public EntryName(int p_i, KaitaiStream p__io, EntryNamesHolder p__parent = null, RfgVpp p__root = null) : base(p__io)
             {
                 m_parent = p__parent;
                 m_root = p__root;
@@ -372,7 +373,7 @@ namespace RFGM.Formats.Vpp.Models
                         return _value;
                     long _pos = m_io.Pos;
                     m_io.Seek(M_Parent.M_Parent.Entries[I].NameOffset);
-                    _value = System.Text.Encoding.GetEncoding("ASCII").GetString(m_io.ReadBytesTerm(0, false, true, true));
+                    _value = Encoding.GetEncoding("ASCII").GetString(m_io.ReadBytesTerm(0, false, true, true));
                     m_io.Seek(_pos);
                     f_value = true;
                     return _value;
@@ -380,14 +381,14 @@ namespace RFGM.Formats.Vpp.Models
             }
             private int _i;
             private RfgVpp m_root;
-            private RfgVpp.EntryNamesHolder m_parent;
+            private EntryNamesHolder m_parent;
             public int I { get { return _i; } }
             public RfgVpp M_Root { get { return m_root; } }
-            public RfgVpp.EntryNamesHolder M_Parent { get { return m_parent; } }
+            public EntryNamesHolder M_Parent { get { return m_parent; } }
         }
         public partial class EntryData : KaitaiStruct
         {
-            public EntryData(int p_i, KaitaiStream p__io, RfgVpp.EntryDataHolder p__parent = null, RfgVpp p__root = null) : base(p__io)
+            public EntryData(int p_i, KaitaiStream p__io, EntryDataHolder p__parent = null, RfgVpp p__root = null) : base(p__io)
             {
                 m_parent = p__parent;
                 m_root = p__root;
@@ -546,11 +547,11 @@ namespace RFGM.Formats.Vpp.Models
             }
             private int _i;
             private RfgVpp m_root;
-            private RfgVpp.EntryDataHolder m_parent;
+            private EntryDataHolder m_parent;
             private byte[] __raw_zlibHeader;
             public int I { get { return _i; } }
             public RfgVpp M_Root { get { return m_root; } }
-            public RfgVpp.EntryDataHolder M_Parent { get { return m_parent; } }
+            public EntryDataHolder M_Parent { get { return m_parent; } }
             public byte[] M_RawZlibHeader { get { return __raw_zlibHeader; } }
         }
         public partial class CompressedDataHolder : KaitaiStruct

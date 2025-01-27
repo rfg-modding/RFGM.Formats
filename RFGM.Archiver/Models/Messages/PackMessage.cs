@@ -1,10 +1,7 @@
 using System.IO.Abstractions;
-using RFGM.Archiver.Models.Metadata;
 using RFGM.Formats;
+using RFGM.Formats.Abstractions;
 
 namespace RFGM.Archiver.Models.Messages;
 
-public record PackMessage(IDirectoryInfo Source, Breadcrumbs Breadcrumbs, IDirectoryInfo OutputPath, bool Recursive, bool Metadata, bool Hash, bool Force) : IMessage
-{
-    public static PackMessage Default(IDirectoryInfo path, IFileSystem fileSystem) => new (path, Breadcrumbs.Init(), fileSystem.DirectoryInfo.New(fileSystem.Path.Combine(path.Parent!.FullName, Constants.DefaultOutputDir)), false, true, false, true);
-}
+public record PackDirectoryMessage(IDirectoryInfo DirectoryInfo, string Destination, PackSettings Settings) : IMessage;

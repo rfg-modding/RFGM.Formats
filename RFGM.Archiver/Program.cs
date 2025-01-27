@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.CommandLine.Builder;
+﻿using System.CommandLine.Builder;
 using System.CommandLine.Help;
 using System.CommandLine.Hosting;
 using System.CommandLine.Parsing;
@@ -8,16 +7,17 @@ using System.IO.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.IO;
 using NLog.Config;
 using NLog.Extensions.Logging;
 using NLog.Filters;
 using NLog.Layouts;
 using NLog.Targets;
 using NLog.Targets.Wrappers;
-using RFGM.Archiver.Args;
-using RFGM.Archiver.Models;
+using RFGM.Archiver;
+using RFGM.Archiver.Commands;
 using RFGM.Archiver.Services;
+using RFGM.Archiver.Services.Handlers;
+using RFGM.Formats.Localization;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Vpp;
 
@@ -33,10 +33,9 @@ var runner = new CommandLineBuilder(root).UseHost(_ => new HostBuilder(),
                 services.AddTransient<Archiver>();
                 services.AddSingleton<ImageConverter>();
                 services.AddSingleton<Worker>();
-                services.AddSingleton<FormatManager>();
                 services.AddSingleton<FileManager>();
-                services.AddSingleton(SetupRecyclableMemoryStream);
-                services.AddLogging(SetupLogs);
+                services.AddSingleton<LocatextReader>();
+                services.AddLogging(ArchiverUtils.SetupLogs);
                 services.Scan(selector =>
                 {
                     selector.FromAssemblyOf<Program>()
@@ -47,7 +46,7 @@ var runner = new CommandLineBuilder(root).UseHost(_ => new HostBuilder(),
                 });
             })
     )
-    .UseHelp(ctx => ctx.HelpBuilder.CustomizeLayout(HackHelpLayout))
+    .UseHelp(ctx => ctx.HelpBuilder.CustomizeLayout(_ => ArchiverUtils.HackHelpLayout(runStandalone)))
     .AddMiddleware(async (context, next) =>
     {
         var log = context.GetHost().Services.GetRequiredService<ILogger<Program>>();
@@ -57,12 +56,13 @@ var runner = new CommandLineBuilder(root).UseHost(_ => new HostBuilder(),
         }
         catch (Exception e)
         {
-            log.LogError(e, "Failed!");
+            var logPath = Path.Combine(Environment.CurrentDirectory, ".rfgm.archiver.log");
+            log.LogTrace(e, "Command failed");
+            log.LogCritical("Command failed!\n\t{message}\n\tCheck log for details:\n\t{logPath}", e.Message, logPath);
         }
     })
     .UseDefaults()
     .Build();
-//args = new[] { "unpeg", @"c:\vault\rfg\unpack_all" };
 if (!args.Any())
 {
     // hack to invoke help with no args and have default command at same time
@@ -78,81 +78,11 @@ if (runStandalone)
 }
 
 
-void SetupLogs(ILoggingBuilder x)
-{
-    x.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.None);
 
-    var config = new LoggingConfiguration();
-
-    var layout = Layout.FromString("${date:format=HH\\:mm\\:ss} ${pad:padding=5:inner=${level:uppercase=true}} ${message}${onexception:${newline}${exception}}");
-    var console = new ConsoleTarget("console");
-    console.Layout = layout;
-    var rule1 = new LoggingRule("*", NLog.LogLevel.Info, NLog.LogLevel.Off, new AsyncTargetWrapper(console, 10000, AsyncTargetWrapperOverflowAction.Discard));
-
-    var file = new FileTarget("file");
-    file.FileName = ".rfgm.archiver.log";
-    file.Layout = layout;
-    var rule2 = new LoggingRule("*", NLog.LogLevel.Trace, NLog.LogLevel.Off, new AsyncTargetWrapper(file, 10000, AsyncTargetWrapperOverflowAction.Grow));
-
-    var filterRule = new LoggingRule("*", NLog.LogLevel.Trace, NLog.LogLevel.Off, new NullTarget());
-    filterRule.Filters.Add(new ConditionBasedFilter {Action = FilterResult.IgnoreFinal, Condition = "'${logger}' == 'Microsoft.Hosting.Lifetime'"});
-    filterRule.Filters.Add(new ConditionBasedFilter {Action = FilterResult.IgnoreFinal, Condition = "'${logger}' == 'Microsoft.Extensions.Hosting.Internal.Host'"});
-    /*filterRule.Filters.Add(new ConditionBasedFilter
-    {
-        Action = FilterResult.IgnoreFinal,
-        Condition = "'${logger}' == 'SyncFaction.Packer.VppArchiver'"
-    });*/
-
-    config.AddRule(filterRule);
-    config.AddRule(rule1);
-    config.AddRule(rule2);
-
-    x.AddNLog(config);
-}
-
-RecyclableMemoryStreamManager SetupRecyclableMemoryStream(IServiceProvider sp)
-{
-    var log = sp.GetRequiredService<ILogger<RecyclableMemoryStreamManager>>();
-    var manager = new RecyclableMemoryStreamManager(new RecyclableMemoryStreamManager.Options()
-    {
-        AggressiveBufferReturn = true,
-        MaximumLargePoolFreeBytes = 64 * 1024 * 1024,
-        MaximumSmallPoolFreeBytes = 100 * 1024
-    });
-
-    manager.StreamCreated += (_, eventArgs) =>
-    {
-        log.LogDebug("Stream created: {tag}", eventArgs.Tag);
-
-        if (!Archiver.StreamTags.TryAdd(eventArgs.Tag!, 1))
-        {
-            throw new InvalidOperationException($"Duplicate stream tag [{eventArgs.Tag}]");
-        }
-    };
-    manager.StreamDisposed += (_, eventArgs) =>
-    {
-        log.LogDebug("Stream disposed: {tag}", eventArgs.Tag);
-        if (!Archiver.StreamTags.TryRemove(eventArgs.Tag!, out var _))
-        {
-            throw new InvalidOperationException($"Missing stream tag [{eventArgs.Tag}]");
-        }
-    };
-    manager.StreamFinalized += (sender, eventArgs) =>
-    {
-        log.LogError("Stream finalized: {tag}", eventArgs.Tag);
-    };
-    return manager;
-}
-
-IEnumerable<HelpSectionDelegate> HackHelpLayout(HelpContext _)
-{
-    var layout = HelpBuilder.Default.GetLayout();
-    if (runStandalone)
-    {
-        return layout
-            .Take(0) // Skip all output
-            .Append(context => Console.WriteLine(context.Command.Description)); // Display banner
-    }
-
-    return layout;
-}
+/*
+TODO:
+ * ImageConverter: colors are off when texture is converted to PNG, especially in normal maps. figure out why, maybe just wrong conversion in dxtex/imgsharp
+ *
+ *
+ *
+    */

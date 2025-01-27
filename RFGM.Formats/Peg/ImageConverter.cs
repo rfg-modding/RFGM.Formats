@@ -7,7 +7,7 @@ using Silk.NET.DXGI;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
-using Size = RFGM.Formats.Peg.Models.Size;
+using Image = Hexa.NET.DirectXTex.Image;
 
 namespace RFGM.Formats.Peg;
 
@@ -16,12 +16,9 @@ namespace RFGM.Formats.Peg;
 /// </summary>
 public class ImageConverter(ILogger<ImageConverter> log)
 {
-    /*
-    TODO: colors are off when converted to PNG, especially in normal maps. figure out why, maybe just wrong conversion in dxtex/imgsharp
-    */
-
     public async Task<Stream> ImageToTexture(Stream image, ImageFormat imageFormat, LogicalTexture logicalTexture, CancellationToken token)
     {
+        log.LogDebug("Converting [{name}] from {format} to texture", logicalTexture.Name, imageFormat);
         if (!image.CanSeek)
         {
             throw new ArgumentException($"Need seekable stream, got {image}", nameof(image));
@@ -61,56 +58,45 @@ public class ImageConverter(ILogger<ImageConverter> log)
         }
     }
 
-    public async Task<Stream> TextureToImage(LogicalTexture texture, ImageFormat imageFormat, CancellationToken token)
+    public async Task<Stream> TextureToImage(LogicalTexture logicalTexture, ImageFormat imageFormat, CancellationToken token)
     {
-        if (!texture.Data.CanSeek)
+        log.LogDebug("Converting [{name}] from texture to {format}", logicalTexture.Name, imageFormat);
+        if (!logicalTexture.Data.CanSeek)
         {
-            throw new ArgumentException($"Need seekable stream, got {texture.Data}", nameof(texture.Data));
+            throw new ArgumentException($"Need seekable stream, got {logicalTexture.Data}", nameof(logicalTexture.Data));
         }
 
-        if (!texture.Data.CanRead)
+        if (!logicalTexture.Data.CanRead)
         {
-            throw new ArgumentException($"Need readable stream, got {texture.Data}", nameof(texture.Data));
+            throw new ArgumentException($"Need readable stream, got {logicalTexture.Data}", nameof(logicalTexture.Data));
         }
 
-        if (texture.Data.Position != 0)
+        if (logicalTexture.Data.Position != 0)
         {
-            throw new ArgumentException($"Expected start of stream, got position = {texture.Data.Position}", nameof(texture.Data));
+            throw new ArgumentException($"Expected start of stream, got position = {logicalTexture.Data.Position}", nameof(logicalTexture.Data));
         }
 
         switch (imageFormat)
         {
             case ImageFormat.dds:
-                var header = await BuildHeader(texture, token);
+                var header = await BuildHeader(logicalTexture, token);
                 var ms = new MemoryStream();
                 await header.CopyToAsync(ms, token);
-                await texture.Data.CopyToAsync(ms, token);
+                await logicalTexture.Data.CopyToAsync(ms, token);
                 ms.Seek(0, SeekOrigin.Begin);
                 return ms;
             case ImageFormat.png:
-                var pngImage = DecodeDDSFirstFrame(texture);
+                var pngImage = DecodeDDSFirstFrame(logicalTexture);
                 var encoder = new PngEncoder();
                 var ms2 = new MemoryStream();
                 await encoder.EncodeAsync(pngImage, ms2, token);
                 ms2.Seek(0, SeekOrigin.Begin);
                 return ms2;
             case ImageFormat.raw:
-                return texture.Data;
+                return logicalTexture.Data;
             default:
                 throw new ArgumentOutOfRangeException(nameof(imageFormat), imageFormat, null);
         }
-    }
-
-    public async Task WritePngFile(Image<Rgba32> image, Stream destination, CancellationToken token)
-    {
-        var encoder = new PngEncoder();
-        await image.SaveAsync(destination, encoder, token);
-    }
-
-    public async Task<Image<Rgba32>> ReadPngFile(FileInfo source, CancellationToken token)
-    {
-        await using var s = source.OpenRead();
-        return await PngDecoder.Instance.DecodeAsync<Rgba32>(new PngDecoderOptions(), s, token);
     }
 
     public unsafe Stream EncodeToRaw(Image<Rgba32> png, LogicalTexture logicalTexture)
@@ -125,7 +111,7 @@ public class ImageConverter(ILogger<ImageConverter> log)
         nuint rowPitch = 0;
         nuint slicePitch = 0;
         DirectXTex.ComputePitch(initialFormat, (nuint) png.Width, (nuint) png.Height, ref rowPitch, ref slicePitch, CPFlags.None);
-        var dxImage = new Hexa.NET.DirectXTex.Image((nuint) png.Width, (nuint) png.Height, initialFormat, rowPitch, (nuint)pngSize, (byte*) pointer.Value.ToPointer());
+        var dxImage = new Image((nuint) png.Width, (nuint) png.Height, initialFormat, rowPitch, (nuint)pngSize, (byte*) pointer.Value.ToPointer());
         var scratchImage = DirectXTex.CreateScratchImage();
         scratchImage.InitializeFromImage(dxImage, false, CPFlags.None);
         var scratchSize = (int)scratchImage.GetPixelsSize();
@@ -171,18 +157,18 @@ public class ImageConverter(ILogger<ImageConverter> log)
         {
             var newImage = DirectXTex.CreateScratchImage();
             DirectXTex.Convert(scratchImage.GetImages(), (int) Format.FormatR8G8B8A8UnormSrgb, TexFilterFlags.Default, 0.5f, ref newImage);
-            log.LogDebug("Size after conversion to {format}: {pixels}", dxFormat, newImage.GetPixelsSize());
+            log.LogTrace("Size after conversion to {format}: {pixels}", dxFormat, newImage.GetPixelsSize());
             disposables.Add(new DisposableScratchImage(newImage));
             scratchImage = newImage;
         }
 
         var dxSize = (int)scratchImage.GetPixelsSize(); // total length with all mips
-        log.LogDebug("Size after all manipulations: {pixels}", dxSize);
+        log.LogTrace("Size after all manipulations: {pixels}", dxSize);
         var dataAlign = logicalTexture.Align;
         var remainder = dxSize % dataAlign;
         var padding = remainder > 0 ? dataAlign - remainder : 0;
         var totalSize = dxSize + padding;
-        log.LogDebug("DDS DATA padding {padding}, totalSize {totalSize}", padding, totalSize);
+        log.LogTrace("DDS DATA padding {padding}, totalSize {totalSize}", padding, totalSize);
         // TODO maybe return unmanaged memory stream and make 1 less copy?
         var pixels = scratchImage.GetPixels();
         var pixelSpan = new Span<byte>(pixels, dxSize);
@@ -225,7 +211,7 @@ public class ImageConverter(ILogger<ImageConverter> log)
         if (scratchImage.GetMetadata().Format != (int)Format.FormatR8G8B8A8Unorm)
         {
             // maybe it was uncompressed, eg r8g8b8a8_unorm_srgb. convert it to regular colorspace with default options
-            ScratchImage newImage = default;
+            var newImage = DirectXTex.CreateScratchImage();;
             DirectXTex.Convert(scratchImage.GetImages(), (int) Format.FormatR8G8B8A8Unorm, TexFilterFlags.Default, 0.5f, ref newImage);
             disposables.Add(new DisposableScratchImage(newImage));
             scratchImage = newImage;

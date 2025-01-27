@@ -4,8 +4,8 @@ namespace RFGM.Formats.Localization;
 
 public class LocalizationHeader
 {
-    private const uint ExpectedSignature = 2823585651;
-    private const uint ExpectedVersion = 3;
+    public const uint ExpectedSignature = 2823585651;
+    public const uint ExpectedVersion = 3;
 
     public uint Signature { get; set; }
     public uint Version { get; set; }

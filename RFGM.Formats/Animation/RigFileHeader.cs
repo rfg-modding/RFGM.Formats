@@ -2,27 +2,27 @@ using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Animation;
 
-public class RigFileHeader()
+public class RigFileHeader
 {
     public string Name = String.Empty; //Must not be larger than 31 characters
-    public uint Flags = 0;
-    public int NumBones = 0;
-    public int NumCommonBones = 0;
-    public int NumVirtualBones = 0;
-    public int NumTags = 0;
-    public int BoneNameChecksumsOffset = 0;
-    public int BonesOffset = 0;
-    public int TagsOffset = 0;
+    public uint Flags;
+    public int NumBones;
+    public int NumCommonBones;
+    public int NumVirtualBones;
+    public int NumTags;
+    public int BoneNameChecksumsOffset;
+    public int BonesOffset;
+    public int TagsOffset;
 
     private const long SizeInFile = 64;
 
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;
+        var startPos = stream.Position;
 
         //This file only has 32 bytes available for the name
-        for (int i = 0; i < 32; i++)
+        for (var i = 0; i < 32; i++)
         {
             if (stream.Peek<char>() == '\0')
                 break;
@@ -42,8 +42,8 @@ public class RigFileHeader()
         TagsOffset = stream.ReadInt32();
 
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for RigFileHeader. Expected {SizeInFile} bytes, read {bytesRead} bytes");

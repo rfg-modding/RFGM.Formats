@@ -8,7 +8,7 @@ namespace RFGM.Formats.Meshes;
 public class ChunkFile(string name)
 {
     public string Name = name;
-    public bool LoadedCpuFile { get; private set; } = false;
+    public bool LoadedCpuFile { get; private set; }
 
     public ChunkFileHeader Header;
 
@@ -39,11 +39,11 @@ public class ChunkFile(string name)
         
         //Skip some unknown data. Skipped/read in the current best guess for how the data is structured
         cpuFile.Skip(400);
-        uint unkValue0 = cpuFile.ReadUInt32();
+        var unkValue0 = cpuFile.ReadUInt32();
         cpuFile.Skip(28);
-        uint unkValue1 = cpuFile.ReadUInt32();
+        var unkValue1 = cpuFile.ReadUInt32();
         cpuFile.Skip(32);
-        uint unkValue2 = cpuFile.ReadUInt32();
+        var unkValue2 = cpuFile.ReadUInt32();
         cpuFile.Skip(184);
         
         //Should be at the render data offset
@@ -56,14 +56,14 @@ public class ChunkFile(string name)
         
         //Read texture names
         cpuFile.AlignRead(16);
-        uint textureNamesBlockSize = cpuFile.ReadUInt32();
+        var textureNamesBlockSize = cpuFile.ReadUInt32();
         Textures = cpuFile.ReadSizedStringList(textureNamesBlockSize);
 
         //TODO: Figure out what this data is
         //Some kind of material data
         cpuFile.AlignRead(16);
-        uint materialOffset = cpuFile.ReadUInt32();
-        uint numMaterials = cpuFile.ReadUInt32();
+        var materialOffset = cpuFile.ReadUInt32();
+        var numMaterials = cpuFile.ReadUInt32();
         cpuFile.Skip(numMaterials * 4); //Potentially a list of material IDs or offsets
         cpuFile.Skip(materialOffset);
         cpuFile.Skip(numMaterials * 8);
@@ -74,26 +74,26 @@ public class ChunkFile(string name)
         //Skip to destroyables. Haven't fully reversed the format yet
         cpuFile.Seek(Header.DestructionOffset, SeekOrigin.Begin);
         cpuFile.AlignRead(128);
-        uint numDestroyables = cpuFile.ReadUInt32();
+        var numDestroyables = cpuFile.ReadUInt32();
         cpuFile.Skip((numDestroyables * 8) + 4);
         cpuFile.AlignRead(16);
         
         //Read destroyables
-        for (int i = 0; i < numDestroyables; i++)
+        for (var i = 0; i < numDestroyables; i++)
         {
             Destroyable destroyable = new();
-            long destroyableStartPos = cpuFile.Position;
+            var destroyableStartPos = cpuFile.Position;
             
             destroyable.Header = cpuFile.ReadStruct<DestroyableHeader>();
             cpuFile.AlignRead(128);
 
-            for (int j = 0; j < destroyable.Header.NumObjects; j++)
+            for (var j = 0; j < destroyable.Header.NumObjects; j++)
             {
                 Subpiece subpiece = new();
                 subpiece.Read(cpuFile);
                 destroyable.Subpieces.Add(subpiece);
             }
-            for (int j = 0; j < destroyable.Header.NumObjects; j++)
+            for (var j = 0; j < destroyable.Header.NumObjects; j++)
             {
                 SubpieceData subpieceData = new();
                 subpieceData.Read(cpuFile);
@@ -101,7 +101,7 @@ public class ChunkFile(string name)
             }
             
             //TODO: Figure out what this data is meant to be. Game has some physical material code here. Maybe link material
-            foreach (Subpiece subpiece in destroyable.Subpieces)
+            foreach (var subpiece in destroyable.Subpieces)
             {
                 cpuFile.Skip(subpiece.NumLinks * 2);
             }
@@ -109,7 +109,7 @@ public class ChunkFile(string name)
             cpuFile.AlignRead(4);
             
             //Read links
-            for (int j = 0; j < destroyable.Header.NumLinks; j++)
+            for (var j = 0; j < destroyable.Header.NumLinks; j++)
             {
                 Link link = new();
                 link.Read(cpuFile);
@@ -118,7 +118,7 @@ public class ChunkFile(string name)
             cpuFile.AlignRead(4);
             
             //Read dlods
-            for (int j = 0; j < destroyable.Header.NumDlods; j++)
+            for (var j = 0; j < destroyable.Header.NumDlods; j++)
             {
                 Dlod dlod = new();
                 dlod.Read(cpuFile);
@@ -138,14 +138,14 @@ public class ChunkFile(string name)
         
         //Read destroyable UIDs, names, indices
         cpuFile.AlignRead(128);
-        for (int i = 0; i < Destroyables.Count; i++)
+        for (var i = 0; i < Destroyables.Count; i++)
         {
-            uint uid = cpuFile.ReadUInt32();
+            var uid = cpuFile.ReadUInt32();
             
             //TODO: Move this into a helper function and use it in RigFileHeader too
             //Read destroyable name which is up to 24 characters long
-            string destroyableName = string.Empty;
-            for (int j = 0; j < 24; j++)
+            var destroyableName = string.Empty;
+            for (var j = 0; j < 24; j++)
             {
                 if (cpuFile.Peek<char>() == '\0')
                     break;
@@ -153,16 +153,16 @@ public class ChunkFile(string name)
                 destroyableName += cpuFile.ReadChar8();
             }
             
-            int destroyableIndex = cpuFile.ReadInt32();
-            uint isDestroyable = cpuFile.ReadUInt32();
-            uint numSnapPoints = cpuFile.ReadUInt32();
+            var destroyableIndex = cpuFile.ReadInt32();
+            var isDestroyable = cpuFile.ReadUInt32();
+            var numSnapPoints = cpuFile.ReadUInt32();
             
-            Destroyable destroyable = Destroyables[destroyableIndex];
+            var destroyable = Destroyables[destroyableIndex];
             destroyable.UID = uid;
             destroyable.Name = destroyableName;
             destroyable.IsDestroyable = isDestroyable;
             destroyable.NumSnapPoints = numSnapPoints;
-            for (int j = 0; j < 10; j++)
+            for (var j = 0; j < 10; j++)
             {
                 destroyable.SnapPoints[j].Read(cpuFile);
             }
@@ -173,13 +173,13 @@ public class ChunkFile(string name)
     
     private bool SkipHavokData(Stream stream)
     {
-        long startPos = stream.Position;
-        uint maybeSignature = stream.ReadUInt32();
+        var startPos = stream.Position;
+        var maybeSignature = stream.ReadUInt32();
         if (maybeSignature != HavokSignature)
             return false;
         
         stream.Skip(4);
-        uint size = stream.ReadUInt32();
+        var size = stream.ReadUInt32();
         stream.Seek(startPos + size, SeekOrigin.Begin);
         return true;
     }
@@ -193,12 +193,12 @@ public class ChunkFile(string name)
         
         //Read index buffer
         gpuFile.Seek(16, SeekOrigin.Begin);
-        byte[] indices = new byte[Config.NumIndices * Config.IndexSize];
+        var indices = new byte[Config.NumIndices * Config.IndexSize];
         gpuFile.ReadExactly(indices);
         
         //Read vertex buffer
         gpuFile.AlignRead(16);
-        byte[] vertices = new byte[Config.NumVertices * Config.VertexStride0];
+        var vertices = new byte[Config.NumVertices * Config.VertexStride0];
         gpuFile.ReadExactly(vertices);
         
         return new MeshInstanceData(Config, vertices, indices);

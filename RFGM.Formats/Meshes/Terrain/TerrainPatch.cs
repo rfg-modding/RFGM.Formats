@@ -19,7 +19,7 @@ public struct TerrainPatch
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         InstanceOffset = stream.ReadUInt32();
@@ -31,8 +31,8 @@ public struct TerrainPatch
         LocalBsphereRadius = stream.ReadFloat();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for TerrainPatch. Expected {SizeInFile} bytes, read {bytesRead} bytes");

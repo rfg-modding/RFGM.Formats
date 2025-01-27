@@ -1,13 +1,13 @@
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.IO;
 using RFGM.Archiver.Models;
 using RFGM.Archiver.Models.Messages;
+using RFGM.Archiver.Services.Handlers;
 
 namespace RFGM.Archiver.Services;
 
-public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemoryStreamManager streamManager, ILogger<Worker> log)
+public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> log)
 {
     public int Pending => actionBlock.InputCount;
     public int InFlight => inFlight;
@@ -15,13 +15,15 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemorySt
 
     private ActionBlock<IMessage> actionBlock = null!;
     private CancellationToken cancellationToken;
-    private int inFlight = 0;
+    private int inFlight;
+    private int posted;
+    private int finished;
     private readonly List<Failure> failed = new();
-    private Queue<IMessage> lowPriority = new();
+    private readonly Queue<IMessage> lowPriority = new();
     private static readonly object Locker = new();
 
 
-    public async Task Start(IMessage initialValues, int parallel, CancellationToken token) => await Start([initialValues], parallel, token);
+    public async Task Start(IMessage initialValue, int parallel, CancellationToken token) => await Start([initialValue], parallel, token);
 
     public async Task Start(IEnumerable<IMessage> initialValues, int parallel, CancellationToken token)
     {
@@ -45,13 +47,14 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemorySt
         var m = lowPriority.Dequeue();
         log.LogTrace("Posting initial message {message}", m);
         actionBlock.Post(m);
+        Interlocked.Increment(ref posted);
         await actionBlock.Completion;
 
     }
 
     private async Task HandleMessage(IMessage message)
     {
-        IEnumerable<IMessage>? newMessages = null;
+        List<IMessage> newMessages = [];
         try
         {
             lock (Locker)
@@ -60,7 +63,16 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemorySt
             }
 
             await using var scope = serviceScopeFactory.CreateAsyncScope();
-            newMessages = await HandleInternal(scope.ServiceProvider, message, cancellationToken);
+            log.LogTrace("Run [{message}]", message);
+            var result = await HandleInternal(scope.ServiceProvider, message, cancellationToken);
+            newMessages = result.ToList();
+            Interlocked.Increment(ref finished);
+            log.LogTrace("End [{message}], result=[{count}]", message, newMessages.Count);
+        }
+        catch (OperationCanceledException e)
+        {
+            var failure = new Failure(message, "HandleMessage canceled", e);
+            failed.Add(failure);
         }
         catch (Exception e)
         {
@@ -72,38 +84,50 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, RecyclableMemorySt
         {
             lock (Locker)
             {
-                if (newMessages != null)
-                {
-                    foreach (var newMessage in newMessages)
-                    {
-                        var result = actionBlock.Post(newMessage);
-                        if (!result)
-                        {
-                            var failure = new Failure(message, $"ActionBlock Post failed, canceled={cancellationToken.IsCancellationRequested}", null);
-                            failed.Add(failure);
-                            log.LogError("Fail! {failure}", failure);
-                        }
-                    }
+                HandleFinally(message, newMessages);
+            }
+        }
+    }
 
-                }
+    private void HandleFinally(IMessage message, List<IMessage> newMessages)
+    {
+        var actualInFlight = Interlocked.Decrement(ref inFlight);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            var failure = new Failure(message, $"ActionBlock canceled", null);
+            failed.Add(failure);
+            actionBlock.Complete();
+            log.LogError("Canceled. Tasks still running: {tasks}", actualInFlight);
+            return;
+        }
 
-                var actualInFlight = Interlocked.Decrement(ref inFlight);
-                if (actualInFlight == 0 && actionBlock.InputCount == 0)
-                {
-                    log.LogDebug("Streams in use: {count}", Archiver.StreamTags.Count);
-                    if (lowPriority.Any())
-                    {
-                        // when nothing else to do, start next initial task
-                        var x = lowPriority.Dequeue();
-                        log.LogTrace("Posting initial message {message}", x);
-                        actionBlock.Post(x);
-                    }
-                    else
-                    {
-                        actionBlock.Complete();
-                        log.LogInformation("Finished all tasks");
-                    }
-                }
+        foreach (var newMessage in newMessages)
+        {
+            var result = actionBlock.Post(newMessage);
+            Interlocked.Increment(ref posted);
+            if (!result)
+            {
+                var failure = new Failure(message, $"ActionBlock Post failed, canceled={cancellationToken.IsCancellationRequested}", null);
+                failed.Add(failure);
+                log.LogError("Fail! {failure}", failure);
+            }
+        }
+
+
+        if (actualInFlight == 0 && actionBlock.InputCount == 0 && newMessages.Count == 0)
+        {
+            if (lowPriority.Any())
+            {
+                // when nothing else to do, start next initial task
+                var x = lowPriority.Dequeue();
+                log.LogTrace("Posting initial message {message}", x);
+                actionBlock.Post(x);
+                Interlocked.Increment(ref posted);
+            }
+            else
+            {
+                actionBlock.Complete();
+                log.LogDebug("Finished {finished}/{posted} tasks", finished, posted);
             }
         }
     }

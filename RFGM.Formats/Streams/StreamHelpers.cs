@@ -8,26 +8,28 @@
 
 // Enum helpers from Gibbed.IO:
 /* Copyright (c) 2017 Rick (rick 'at' gibbed 'dot' us)
- * 
+ *
  *  This software is provided 'as-is', without any express or implied
  *  warranty. In no event will the authors be held liable for any damages
  *  arising from the use of this software.
- *  
+ *
  *  Permission is granted to anyone to use this software for any purpose,
  *  including commercial applications, and to alter it and redistribute it
  *  freely, subject to the following restrictions:
- *  
+ *
  *  1. The origin of this software must not be misrepresented; you must not
  *     claim that you wrote the original software. If you use this software
  *     in a product, an acknowledgment in the product documentation would
  *     be appreciated but is not required.
- * 
+ *
  *  2. Altered source versions must be plainly marked as such, and must not
  *     be misrepresented as being the original software.
- * 
+ *
  *  3. This notice may not be removed or altered from any source
  *     distribution.
 */
+
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -44,12 +46,12 @@ namespace RFGM.Formats.Streams
 
         public static T ReadStruct<T>(this Stream stream, int length)
         {
-            byte[] data = new byte[length];
+            var data = new byte[length];
             stream.Read(data, 0, data.Length);
 
-            nint ptr = Marshal.AllocHGlobal(length);
+            var ptr = Marshal.AllocHGlobal(length);
             Marshal.Copy(data, 0, ptr, length);
-            T structInstance = (T)Marshal.PtrToStructure(ptr, typeof(T));
+            var structInstance = (T)Marshal.PtrToStructure(ptr, typeof(T))!;
             Marshal.FreeHGlobal(ptr);
 
             return structInstance;
@@ -57,11 +59,11 @@ namespace RFGM.Formats.Streams
 
         public static void WriteStruct<T>(this Stream stream, T structToWrite)
         {
-            int size = Marshal.SizeOf(structToWrite);
-            byte[] data = new byte[size];
+            var size = Marshal.SizeOf(structToWrite);
+            var data = new byte[size];
 
-            nint ptr = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(structToWrite, ptr, true);
+            var ptr = Marshal.AllocHGlobal(size);
+            Marshal.StructureToPtr(structToWrite!, ptr, true);
             Marshal.Copy(ptr, data, 0, size);
             Marshal.FreeHGlobal(ptr);
 
@@ -77,21 +79,21 @@ namespace RFGM.Formats.Streams
 
         public static short ReadInt16(this Stream stream)
         {
-            byte[] data = new byte[2];
+            var data = new byte[2];
             stream.Read(data, 0, 2);
             return BitConverter.ToInt16(data, 0);
         }
 
         public static int ReadInt32(this Stream stream)
         {
-            byte[] data = new byte[4];
+            var data = new byte[4];
             stream.Read(data, 0, 4);
             return BitConverter.ToInt32(data, 0);
         }
 
         public static long ReadInt64(this Stream stream)
         {
-            byte[] data = new byte[8];
+            var data = new byte[8];
             stream.Read(data, 0, 8);
             return BitConverter.ToInt64(data, 0);
         }
@@ -103,19 +105,19 @@ namespace RFGM.Formats.Streams
 
         public static void WriteInt16(this Stream stream, short value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 2);
         }
 
         public static void WriteInt32(this Stream stream, int value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 4);
         }
 
         public static void WriteInt64(this Stream stream, long value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 8);
         }
         #endregion
@@ -128,21 +130,21 @@ namespace RFGM.Formats.Streams
 
         public static ushort ReadUInt16(this Stream stream)
         {
-            byte[] data = new byte[2];
+            var data = new byte[2];
             stream.Read(data, 0, 2);
             return BitConverter.ToUInt16(data, 0);
         }
 
         public static uint ReadUInt32(this Stream stream)
         {
-            byte[] data = new byte[4];
+            var data = new byte[4];
             stream.Read(data, 0, 4);
             return BitConverter.ToUInt32(data, 0);
         }
 
         public static ulong ReadUInt64(this Stream stream)
         {
-            byte[] data = new byte[8];
+            var data = new byte[8];
             stream.Read(data, 0, 8);
             return BitConverter.ToUInt64(data, 0);
         }
@@ -153,19 +155,19 @@ namespace RFGM.Formats.Streams
 
         public static void WriteUInt16(this Stream stream, ushort value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 2);
         }
 
         public static void WriteUInt32(this Stream stream, uint value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 4);
         }
 
         public static void WriteUInt64(this Stream stream, ulong value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 8);
         }
         #endregion
@@ -183,20 +185,19 @@ namespace RFGM.Formats.Streams
 
         public static string ReadAsciiNullTerminatedString(this Stream stream)
         {
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
             while (true)
             {
-                char c = (char)stream.ReadByte();
+                var c = (char)stream.ReadByte();
                 if (c == 0)
                     return sb.ToString();
-                else
-                    sb.Append(c);
+                sb.Append(c);
             }
         }
 
         public static int WriteAsciiNullTerminatedString(this Stream stream, string data)
         {
-            byte[] bytes = Encoding.ASCII.GetBytes(data);
+            var bytes = Encoding.ASCII.GetBytes(data);
             stream.Write(bytes, 0, bytes.Length);
             stream.WriteByte(0);
             return bytes.Length + 1;
@@ -204,21 +205,21 @@ namespace RFGM.Formats.Streams
 
         public static string ReadAsciiString(this Stream stream, int length)
         {
-            byte[] bytes = new byte[length];
+            var bytes = new byte[length];
             stream.Read(bytes, 0, length);
             return Encoding.ASCII.GetString(bytes);
         }
 
         public static int WriteAsciiString(this Stream stream, string data)
         {
-            byte[] bytes = Encoding.ASCII.GetBytes(data);
+            var bytes = Encoding.ASCII.GetBytes(data);
             stream.Write(bytes, 0, bytes.Length);
             return bytes.Length;
         }
 
         public static string ReadLengthPrefixedString16(this Stream stream)
         {
-            short length = stream.ReadInt16();
+            var length = stream.ReadInt16();
             return stream.ReadAsciiString(length);
         }
 
@@ -232,27 +233,27 @@ namespace RFGM.Formats.Streams
         #region Float helpers
         public static float ReadFloat(this Stream stream)
         {
-            byte[] data = new byte[4];
+            var data = new byte[4];
             stream.Read(data, 0, 4);
             return BitConverter.ToSingle(data, 0);
         }
 
         public static void WriteFloat(this Stream stream, float value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 4);
         }
 
         public static double ReadDouble(this Stream stream)
         {
-            byte[] data = new byte[8];
+            var data = new byte[8];
             stream.Read(data, 0, 8);
             return BitConverter.ToDouble(data, 0);
         }
 
         public static void WriteDouble(this Stream stream, double value)
         {
-            byte[] data = BitConverter.GetBytes(value);
+            var data = BitConverter.GetBytes(value);
             stream.Write(data, 0, 8);
         }
 
@@ -261,29 +262,26 @@ namespace RFGM.Formats.Streams
         #region Alignment helpers
         public static void Align(this Stream stream, uint alignment)
         {
-            long position = stream.Position;
-            long outBy = position % alignment;
+            var position = stream.Position;
+            var outBy = position % alignment;
 
             if (outBy == 0)
                 return;
-            else
-            {
-                long offset = alignment - outBy;
-                stream.Seek(offset, SeekOrigin.Current);
-            }
+            var offset = alignment - outBy;
+            stream.Seek(offset, SeekOrigin.Current);
         }
 
         public static long AlignRead(this Stream stream, long alignment)
         {
-            long paddingSize = stream.CalcAlignment(alignment);
+            var paddingSize = stream.CalcAlignment(alignment);
             stream.Seek(paddingSize, SeekOrigin.Current);
             return paddingSize;
         }
 
         public static long AlignWrite(this Stream stream, long alignment)
         {
-            long paddingSize = stream.CalcAlignment(alignment);
-            for (int i = 0; i < paddingSize; i++)
+            var paddingSize = stream.CalcAlignment(alignment);
+            for (var i = 0; i < paddingSize; i++)
             {
                 stream.WriteByte(0);
             }
@@ -292,13 +290,13 @@ namespace RFGM.Formats.Streams
 
         public static long CalcAlignment(this Stream stream, long alignment)
         {
-            return StreamHelpers.CalcAlignment(stream.Position, alignment);
+            return CalcAlignment(stream.Position, alignment);
         }
 
         public static long CalcAlignment(long position, long alignment)
         {
-            long remainder = position % alignment;
-            long paddingSize = remainder > 0 ? alignment - remainder : 0;
+            var remainder = position % alignment;
+            var paddingSize = remainder > 0 ? alignment - remainder : 0;
             return paddingSize;
         }
 
@@ -373,7 +371,7 @@ namespace RFGM.Formats.Streams
 
         public static void WriteNullBytes(this Stream stream, long numBytes)
         {
-            byte[] bytes = new byte[numBytes];
+            var bytes = new byte[numBytes];
             stream.Write(bytes);
         }
 
@@ -397,7 +395,7 @@ namespace RFGM.Formats.Streams
 
             private static TypeCode TranslateType(Type type)
             {
-                if (type.IsEnum == true)
+                if (type.IsEnum)
                 {
                     var underlyingType = Enum.GetUnderlyingType(type);
                     var underlyingTypeCode = Type.GetTypeCode(underlyingType);
@@ -557,8 +555,8 @@ namespace RFGM.Formats.Streams
             List<string> strings = new();
             if (sizeBytes < 0)
                 return strings;
-            
-            long startPos = stream.Position;
+
+            var startPos = stream.Position;
             while (stream.Position - startPos < sizeBytes)
             {
                 strings.Add(stream.ReadAsciiNullTerminatedString());
@@ -572,14 +570,14 @@ namespace RFGM.Formats.Streams
                         break;
                 }
             }
-            
+
             return strings;
         }
 
         public static T Peek<T>(this Stream stream) where T : unmanaged
         {
-            long startPos = stream.Position;
-            T result = stream.ReadStruct<T>();
+            var startPos = stream.Position;
+            var result = stream.ReadStruct<T>();
             stream.Seek(startPos, SeekOrigin.Begin);
             return result;
         }

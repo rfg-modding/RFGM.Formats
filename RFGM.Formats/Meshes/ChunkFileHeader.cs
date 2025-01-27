@@ -22,7 +22,7 @@ public struct ChunkFileHeader()
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         Signature = stream.ReadUInt32();
@@ -39,8 +39,8 @@ public struct ChunkFileHeader()
         DestructionDataSize = stream.ReadUInt32();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for ChunkFileHeader. Expected {SizeInFile} bytes, read {bytesRead} bytes");

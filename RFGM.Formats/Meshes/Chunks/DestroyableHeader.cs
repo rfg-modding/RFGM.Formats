@@ -21,7 +21,7 @@ public struct DestroyableHeader
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         AabbTreeOffset = stream.ReadUInt32();
@@ -37,8 +37,8 @@ public struct DestroyableHeader
         Mass = stream.ReadFloat();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for DestroyableHeader. Expected {SizeInFile} bytes, read {bytesRead} bytes");

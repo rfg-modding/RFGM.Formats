@@ -1,6 +1,3 @@
-using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
 
 namespace RFGM.Formats.Streams;
@@ -14,7 +11,7 @@ public sealed class StreamView(Stream underlyingStream, long viewStart, long vie
     public bool IsStreamOwner { get; init; } = false;
 
     private bool isClosed;
-    private long position = 0;
+    private long position;
 
     public string Name => name;
 
@@ -79,7 +76,7 @@ public sealed class StreamView(Stream underlyingStream, long viewStart, long vie
     public override int ReadByte()
     {
         var oneByteArray = new byte[1];
-        int r = Read(oneByteArray, 0, 1);
+        var r = Read(oneByteArray, 0, 1);
         return r == 0 ? -1 : oneByteArray[0];
     }
 

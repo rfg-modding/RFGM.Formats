@@ -18,20 +18,20 @@ public struct UndergrowthCellLayerData
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
         
         LayerIndex = stream.ReadUInt8();
         Density = stream.ReadUInt8();
-        int bitmaskBytesRead = stream.Read(Bitmask, 0, 8);
+        var bitmaskBytesRead = stream.Read(Bitmask, 0, 8);
         if (bitmaskBytesRead != 8)
         {
             throw new Exception("Failed to read Bitmask for UndergrowthCellLayerData");
         }
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for UndergrowthCellLayerData. Expected {SizeInFile} bytes, read {bytesRead} bytes");

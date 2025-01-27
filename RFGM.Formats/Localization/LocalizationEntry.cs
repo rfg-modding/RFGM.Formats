@@ -1,6 +1,6 @@
-﻿using RFGM.Formats.Streams;
-using System.Text;
+﻿using System.Text;
 using System.Xml.Serialization;
+using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Localization;
 
@@ -38,7 +38,7 @@ public class LocalizationEntry
     public void ReadString(Stream stream)
     {
         stream.Seek(Offset, SeekOrigin.Begin);
-        byte[] stringBytes = stream.ReadBytes((int)Length);
+        var stringBytes = stream.ReadBytes((int)Length);
         String = Encoding.Unicode.GetString(stringBytes).TrimEnd('\0');
     }
 

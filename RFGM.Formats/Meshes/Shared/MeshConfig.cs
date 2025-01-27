@@ -35,7 +35,7 @@ public class MeshConfig
 
     public void Read(Stream stream, bool patchBufferOffsets = false)
     {
-        long startPos = stream.Position;
+        var startPos = stream.Position;
         
         Version = stream.ReadUInt32();
         VerificationHash = stream.ReadUInt32();
@@ -58,7 +58,7 @@ public class MeshConfig
         NumRenderBlocks = stream.ReadUInt16();
 
         stream.AlignRead(16);
-        for (int i = 0; i < NumSubmeshes; i++)
+        for (var i = 0; i < NumSubmeshes; i++)
         {
             SubmeshData submesh = new();
             submesh.Read(stream);
@@ -70,7 +70,7 @@ public class MeshConfig
         {
             numRenderBlocks += submesh.NumRenderBlocks;
         }
-        for (int i = 0; i < numRenderBlocks; i++)
+        for (var i = 0; i < numRenderBlocks; i++)
         {
             RenderBlock renderBlock = new();
             renderBlock.Read(stream);
@@ -82,21 +82,21 @@ public class MeshConfig
         if (patchBufferOffsets)
         {
             IndicesOffset = 16;
-            uint indicesEnd = IndicesOffset + (NumIndices * IndexSize);
+            var indicesEnd = IndicesOffset + (NumIndices * IndexSize);
             VerticesOffset = indicesEnd + (uint)StreamHelpers.CalcAlignment(indicesEnd, 16);
         }
         
         //Patch render block offsets for easy access later
         uint renderBlockOffset = 0;
-        for (int i = 0; i < Submeshes.Count; i++)
+        for (var i = 0; i < Submeshes.Count; i++)
         {
-            SubmeshData submesh = Submeshes[i];
+            var submesh = Submeshes[i];
             submesh.RenderBlocksOffset = renderBlockOffset;
             renderBlockOffset += submesh.NumRenderBlocks;
             Submeshes[i] = submesh;
         }
         
-        uint endVerificationHash = stream.ReadUInt32();
+        var endVerificationHash = stream.ReadUInt32();
         if (VerificationHash != endVerificationHash)
             throw new Exception("MeshConfig begin/end verification hash mismatch");
         if (stream.Position - startPos != CpuDataSize)

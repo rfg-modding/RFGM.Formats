@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using RFGM.Formats.Hashes;
 using RFGM.Formats.Math;
 using RFGM.Formats.Streams;
@@ -31,7 +32,7 @@ public class RfgZoneObject
         try
         {
 #if DEBUG
-            long startPos = stream.Position;
+            var startPos = stream.Position;
 #endif
             //Read object header
             ClassnameHash = stream.ReadUInt32();
@@ -53,17 +54,17 @@ public class RfgZoneObject
                 return false;
             }
             
-            long propertiesStart = stream.Position;
+            var propertiesStart = stream.Position;
 #endif
 
             //Read object properties
             List<RfgZoneObjectProperty> properties = new();
-            for (int i = 0; i < NumProperties; i++)
+            for (var i = 0; i < NumProperties; i++)
             {
-                ushort type = stream.ReadUInt16();
-                ushort size = stream.ReadUInt16();
-                uint nameHash = stream.ReadUInt32();
-                byte[] data = stream.ReadBytes(size);
+                var type = stream.ReadUInt16();
+                var size = stream.ReadUInt16();
+                var nameHash = stream.ReadUInt32();
+                var data = stream.ReadBytes(size);
                 RfgZoneObjectProperty prop = new(type, size, nameHash, data); //TODO: Look into using StreamView on the source stream instead of making a copy here
                 properties.Add(prop);
                 stream.AlignRead(4);
@@ -71,7 +72,7 @@ public class RfgZoneObject
             Properties = properties;
             
 #if DEBUG
-            long propertiesEnd = stream.Position;
+            var propertiesEnd = stream.Position;
             if (propertiesEnd != propertiesStart + PropertyBlockSize)
             {
                 error = $"Expected to read {PropertyBlockSize} bytes for object properties. Actually read {stream.Position - startPos}. Handle: {Handle}, Num: {Num}";
@@ -90,7 +91,7 @@ public class RfgZoneObject
 
     private RfgZoneObjectProperty? GetProperty(string name)
     {
-        uint nameHash = Hash.HashVolitionCRC(name, 0);
+        var nameHash = Hash.HashVolitionCRC(name, 0);
         return Properties.FirstOrDefault(property => property.NameHash == nameHash);
     }
 
@@ -98,7 +99,7 @@ public class RfgZoneObject
     {
         value = null;
 
-        RfgZoneObjectProperty? property = GetProperty(name);
+        var property = GetProperty(name);
         if (property is null)
             return false;
         if (property.Type != type)
@@ -229,7 +230,7 @@ public class RfgZoneObject
             return true;
         }
 
-        value = new PositionOrient()
+        value = new PositionOrient
         {
             Position = Vector3.Zero,
             Orient = Matrix3x3.Identity,
@@ -245,7 +246,7 @@ public class RfgZoneObject
             return true;
         }
 
-        value = new BoundingBox()
+        value = new BoundingBox
         {
             Min = Vector3.Zero,
             Max = Vector3.Zero,
@@ -255,7 +256,7 @@ public class RfgZoneObject
 
     public bool GetBuffer(string name, out byte[] value)
     {
-        RfgZoneObjectProperty? property = GetProperty(name);
+        var property = GetProperty(name);
         if (property is null)
         {
             value = [];
@@ -272,7 +273,7 @@ public class RfgZoneObject
 
     public bool GetString(string name, out string value)
     {
-        RfgZoneObjectProperty? property = GetProperty(name);
+        var property = GetProperty(name);
         if (property is null)
         {
             value = string.Empty;
@@ -283,7 +284,7 @@ public class RfgZoneObject
             throw new Exception($"Invalid type for zone object string property '{name}'. Expected type 4, found {property.Type}.");
         }
         
-        string result = System.Text.Encoding.ASCII.GetString(property.Data);
+        var result = Encoding.ASCII.GetString(property.Data);
         if (result.EndsWith('\0'))
         {
             result = result.Substring(0, result.Length - 1); //Don't include null terminator
@@ -295,7 +296,7 @@ public class RfgZoneObject
     //TODO: Implement the ConstraintTemplate struct and return that here
     public bool GetConstraintTemplate(string name, out byte[] value)
     {
-        RfgZoneObjectProperty? property = GetProperty(name);
+        var property = GetProperty(name);
         if (property is null)
         {
             value = [];

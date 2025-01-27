@@ -11,7 +11,7 @@ public struct BoundingBox(Vector3 min, Vector3 max)
     
     public Vector3 Center()
     {
-        Vector3 bboxSize = Max - Min;
+        var bboxSize = Max - Min;
         return Min + (bboxSize / 2);
     }
 

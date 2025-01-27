@@ -13,7 +13,7 @@ public struct SingleUndergrowthCellLayerData
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
         
         NumSingleUndergrowth = stream.ReadUInt32();
@@ -21,8 +21,8 @@ public struct SingleUndergrowthCellLayerData
         SingleUndergrowthOffset = stream.ReadUInt32();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for SingleUndergrowthCellLayerData. Expected {SizeInFile} bytes, read {bytesRead} bytes");

@@ -15,7 +15,7 @@ public struct Sphere
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         BodyPartId = stream.ReadUInt32();
@@ -24,8 +24,8 @@ public struct Sphere
         Radius = stream.ReadFloat();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for Sphere. Expected {SizeInFile} bytes, read {bytesRead} bytes");

@@ -40,10 +40,10 @@ public static class Hash
 
     public static uint HashVolitionCRC(string input, uint hash)
     {
-        uint result = hash;
+        var result = hash;
         foreach (var c in input)
         {
-	        char lower = char.ToLower(c);
+	        var lower = char.ToLower(c);
 	        result = VolitionCrcTable[(byte)result ^ (byte)lower] ^ (result >> 8);
         }
 
@@ -52,11 +52,11 @@ public static class Hash
 
     public static uint HashVolitionCRCAlt(string input)
     {
-        uint hash = ~0u;
+        var hash = ~0u;
 
-        foreach (char c in input)
+        foreach (var c in input)
         {
-            char currentChar = c;
+            var currentChar = c;
 
             if ((byte)(currentChar + 191) < 26)
             {
@@ -71,9 +71,9 @@ public static class Hash
 
     public static uint HashVolitionCRCAlt(byte[] input)
     {
-        uint hash = ~0u;
+        var hash = ~0u;
 
-        foreach (byte b in input)
+        foreach (var b in input)
         {
             hash = hash >> 8 ^ VolitionCrcTable[(b ^ hash) & 255];
         }
@@ -86,7 +86,7 @@ public static class Hash
         uint hash = 0;
         foreach (var c in input)
         {
-	        char lower = char.ToLower(c);
+	        var lower = char.ToLower(c);
 	        hash = (hash << 6) | (hash >> 26);
 	        hash = (byte)lower ^ hash;
         }

@@ -6,7 +6,4 @@ public record LogicalTextureArchive(
     int TotalLength,
     int DataLength,
     int Align
-)
-{
-    public string UnpackName => $"{Name}.{Align}";
-}
+);
