@@ -1,6 +1,8 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.CommandLine.Help;
+using System.CommandLine.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NLog.Config;
 using NLog.Extensions.Logging;
@@ -100,4 +102,20 @@ public static class ArchiverUtils
 
         x.AddNLog(config);
     }
+
+    public static async Task LogExceptionMiddleware(InvocationContext context, Func<InvocationContext, Task> next)
+    {
+        var log = context.GetHost().Services.GetRequiredService<ILogger<Program>>();
+        try
+        {
+            await next.Invoke(context);
+        }
+        catch (Exception e)
+        {
+            var logPath = Path.Combine(Environment.CurrentDirectory, ".rfgm.archiver.log");
+            log.LogTrace(e, "Command failed");
+            log.LogCritical("Command failed!\n\t{message}\n\tCheck log for details:\n\t{logPath}", e.Message, logPath);
+        }
+    }
+
 }

@@ -1,6 +1,7 @@
 ﻿using System.CommandLine.Builder;
 using System.CommandLine.Help;
 using System.CommandLine.Hosting;
+using System.CommandLine.Invocation;
 using System.CommandLine.Parsing;
 using System.Diagnostics;
 using System.IO.Abstractions;
@@ -23,53 +24,17 @@ using RFGM.Formats.Vpp;
 
 var runStandalone = !string.IsNullOrEmpty(Process.GetCurrentProcess().MainWindowTitle);
 var root = new AppRootCommand();
-var runner = new CommandLineBuilder(root).UseHost(_ => new HostBuilder(),
-        builder => builder.UseConsoleLifetime()
-            .ConfigureServices((_, services) =>
-            {
-                services.AddTransient<IVppArchiver, VppArchiver>();
-                services.AddTransient<IPegArchiver, PegArchiver>();
-                services.AddSingleton<IFileSystem, FileSystem>();
-                services.AddTransient<Archiver>();
-                services.AddSingleton<ImageConverter>();
-                services.AddSingleton<Worker>();
-                services.AddSingleton<FileManager>();
-                services.AddSingleton<LocatextReader>();
-                services.AddLogging(ArchiverUtils.SetupLogs);
-                services.Scan(selector =>
-                {
-                    selector.FromAssemblyOf<Program>()
-                        .AddClasses(filter => filter.AssignableTo(typeof(IHandler<>)))
-                        .AsImplementedInterfaces()
-                        .WithScopedLifetime()
-                        ;
-                });
-            })
-    )
+var runner = new CommandLineBuilder(root)
+    .UseHost(_ => new HostBuilder(), builder => builder.UseConsoleLifetime().ConfigureServices(ConfigureServices))
     .UseHelp(ctx => ctx.HelpBuilder.CustomizeLayout(_ => ArchiverUtils.HackHelpLayout(runStandalone)))
-    .AddMiddleware(async (context, next) =>
-    {
-        var log = context.GetHost().Services.GetRequiredService<ILogger<Program>>();
-        try
-        {
-            await next.Invoke(context);
-        }
-        catch (Exception e)
-        {
-            var logPath = Path.Combine(Environment.CurrentDirectory, ".rfgm.archiver.log");
-            log.LogTrace(e, "Command failed");
-            log.LogCritical("Command failed!\n\t{message}\n\tCheck log for details:\n\t{logPath}", e.Message, logPath);
-        }
-    })
+    .AddMiddleware(ArchiverUtils.LogExceptionMiddleware)
     .UseDefaults()
     .Build();
 if (!args.Any())
 {
-    // hack to invoke help with no args and have default command at same time
-    args = ["--help"];
+    args = ["--help"]; // hack to invoke help with no args and have default command at same time
 }
 await runner.InvokeAsync(args);
-
 if (runStandalone)
 {
     // user ran .exe directly from explorer, show help and don't close
@@ -77,12 +42,27 @@ if (runStandalone)
     Console.ReadLine();
 }
 
-
+void ConfigureServices(HostBuilderContext _, IServiceCollection services)
+{
+    services.AddTransient<IVppArchiver, VppArchiver>();
+    services.AddTransient<IPegArchiver, PegArchiver>();
+    services.AddSingleton<IFileSystem, FileSystem>();
+    services.AddTransient<Archiver>();
+    services.AddSingleton<ImageConverter>();
+    services.AddSingleton<Worker>();
+    services.AddSingleton<FileManager>();
+    services.AddSingleton<LocatextReader>();
+    services.AddLogging(ArchiverUtils.SetupLogs);
+    services.Scan(selector =>
+    {
+        selector.FromAssemblyOf<Program>()
+            .AddClasses(filter => filter.AssignableTo(typeof(IHandler<>)))
+            .AsImplementedInterfaces()
+            .WithScopedLifetime();
+    });
+}
 
 /*
 TODO:
  * ImageConverter: colors are off when texture is converted to PNG, especially in normal maps. figure out why, maybe just wrong conversion in dxtex/imgsharp
- *
- *
- *
     */
