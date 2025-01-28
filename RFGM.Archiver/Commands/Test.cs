@@ -8,7 +8,9 @@ namespace RFGM.Archiver.Commands;
 
 public class Test : Command
 {
-    private readonly Argument<List<string>> inputArg = new("input", "test input");
+    private readonly Argument<List<string>> inputArg = new("input", "test input"){
+        Arity = ArgumentArity.OneOrMore
+    };
 
     private readonly Option<int> parallelArg = new([
             "-p",

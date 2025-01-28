@@ -15,7 +15,9 @@ namespace RFGM.Archiver.Commands;
 
 public class Pack : Command
 {
-    private readonly Argument<List<string>> inputArg = new("input", "Directory to pack. Can specify multiple directories");
+    private readonly Argument<List<string>> inputArg = new("input", "Directory to pack. Can specify multiple directories"){
+        Arity = ArgumentArity.OneOrMore
+    };
 
     private readonly Option<string?> outputArg = new([
             "-o",
@@ -57,7 +59,8 @@ NOTES:
     * not recursive, nested directories are ignored
     * directory to pack must have valid name with required container properties
     * either specify order prefix for every file or rely on sorting by name
-    * do not pack formatted xml-like files";
+    * keep original formatting in xml-like files, game crashes if they are reformatted
+    * use -m to verify packed entries, compare with metadata obtained during unpack";
 
     public Pack() : base(nameof(Pack).ToLowerInvariant())
     {
@@ -74,11 +77,6 @@ NOTES:
     private async Task<int> Handle(InvocationContext context, CancellationToken token)
     {
         var input = context.ParseResult.GetValueForArgument(inputArg);
-        if (!input.Any())
-        {
-            return await context.ForcePrintHelp(this);
-        }
-
         var output = context.ParseResult.GetValueForOption(outputArg)!;
         var isDefault =context.ParseResult.GetValueForOption(defaultArg);
         var metadata = context.ParseResult.GetValueForOption(metadataArg);

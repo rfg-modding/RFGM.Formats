@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO.Abstractions;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
@@ -101,16 +102,6 @@ public class Archiver(IFileSystem fileSystem, FileManager fileManager, Worker wo
         }
     }
 
-    public async Task Test(List<string> input, int parallel, CancellationToken token)
-    {
-        log.LogWarning("You found a hidden [test] command! It does nothing useful, unfortunately, only runs some checks");
-        await Task.Yield();
-        var m = new Matcher().AddInclude("");
-        var s = "x/y/foo.bar";
-        var match = m.Match(s);
-        log.LogCritical($"match = {match.HasMatches}");
-    }
-
     private async Task WriteMetadata(List<IDirectoryInfo> destinations)
     {
         var destination = GetMetadataDestination(destinations);
@@ -148,6 +139,7 @@ public class Archiver(IFileSystem fileSystem, FileManager fileManager, Worker wo
     }
 
     public static readonly ConcurrentBag<Metadata> Metadata = new();
+
     public static readonly ConcurrentBag<string> Destinations = new();
 
     public async Task UnpackMetadata(List<string> input, int parallel, UnpackSettings settings, CancellationToken token)
@@ -208,6 +200,26 @@ public class Archiver(IFileSystem fileSystem, FileManager fileManager, Worker wo
         else
         {
             log.LogError("No output! Check log for details:\n\t{logPath}", logPath);
+        }
+    }
+
+    public async Task Test(List<string> input, int parallel, CancellationToken token)
+    {
+        log.LogWarning("You found a hidden [test] command! It does nothing useful, unfortunately, only runs some checks");
+        await Task.Yield();
+
+        RunRegex("00001 foo {a=b,c=d}.bar");
+        RunRegex("foo {a=b,c=d}.bar");
+        RunRegex("foo.bar");
+
+        void RunRegex(string s)
+        {
+            /*var m = propertyNameFormat.Match(s);
+            var ext = m.Groups["ext"].Value;
+            var order = m.Groups["order"].Value;
+            var nameNoExt = m.Groups["nameNoExt"].Value;
+            var props = m.Groups["props"].Value;
+            log.LogInformation($"[{s}] = {nameNoExt} {ext} {order} {props}");*/
         }
     }
 }

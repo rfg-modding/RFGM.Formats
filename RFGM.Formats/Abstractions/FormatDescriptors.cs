@@ -5,9 +5,9 @@ namespace RFGM.Formats.Abstractions;
 
 public static class FormatDescriptors
 {
-    public static IFormatDescriptor DetermineByName(string name) => AllDescriptors.FirstOrDefault(x => x.Match(name)) ?? RegularFile;
+    public static IFormatDescriptor DetermineByName(string name) => AllDescriptors.FirstOrDefault(x => x.DecodeMatch(name)) ?? RegularFile;
 
-    public static IFormatDescriptor DetermineByFileSystem(IFileSystemInfo info) => AllDescriptors.FirstOrDefault(x => x.Match(info)) ?? RegularFile;
+    public static IFormatDescriptor DetermineByFileSystem(IFileSystemInfo info) => AllDescriptors.FirstOrDefault(x => x.EncodeMatch(info)) ?? RegularFile;
 
     private static readonly IReadOnlyList<IFormatDescriptor> Instances = new List<IFormatDescriptor>
     {
@@ -15,19 +15,19 @@ public static class FormatDescriptors
         new VppDescriptor(),
         new PegDescriptor(),
         new XmlDescriptor(),
-        new RawTextureDescriptor(),
         new TextureDescriptor(),
+        new LocatextDescriptor()
     };
 
     private static readonly ImmutableHashSet<IFormatDescriptor> AllDescriptors = Instances.ToHashSet().ToImmutableHashSet();
 
-    public static readonly IReadOnlyList<string> UnpackExt = Instances.Where(x => x.IsContainer).Where(x => x.CanDecode).SelectMany(x => x.Extensions).Order().ToList();
+    public static readonly IReadOnlyList<string> UnpackExt = Instances.Where(x => x.IsContainer).Where(x => x.CanDecode).SelectMany(x => x.CanDecodeExtensions).Order().ToList();
 
-    public static readonly IReadOnlyList<string> PackExt = Instances.Where(x => x.IsContainer).Where(x => x.CanEncode).SelectMany(x => x.Extensions).Order().ToList();
+    public static readonly IReadOnlyList<string> PackExt = Instances.Where(x => x.IsContainer).Where(x => x.CanEncode).SelectMany(x => x.CanEncodeExtensions).Order().ToList();
 
-    public static readonly IReadOnlyList<string> DecodeExt = Instances.Where(x => !x.IsContainer).Where(x => x.CanDecode).SelectMany(x => x.Extensions).Order().ToList();
+    public static readonly IReadOnlyList<string> DecodeExt = Instances.Where(x => !x.IsContainer).Where(x => x.CanDecode).SelectMany(x => x.CanDecodeExtensions).Order().ToList();
 
-    public static readonly IReadOnlyList<string> EncodeExt = Instances.Where(x => !x.IsContainer).Where(x => x.CanEncode).SelectMany(x => x.Extensions).Order().ToList();
+    public static readonly IReadOnlyList<string> EncodeExt = Instances.Where(x => !x.IsContainer).Where(x => x.CanEncode).SelectMany(x => x.CanEncodeExtensions).Order().ToList();
 
     public static readonly IFormatDescriptor RegularFile = new RegularFileDescriptor();
 }

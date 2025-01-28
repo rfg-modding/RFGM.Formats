@@ -16,16 +16,6 @@ namespace RFGM.Archiver;
 
 public static class ArchiverUtils
 {
-    public static async Task<int> ForcePrintHelp(this InvocationContext context, Command command)
-    {
-        var name = command.GetType().Name.ToLowerInvariant();
-        await using var sw = new StringWriter();
-        await sw.WriteLineAsync($"Required argument missing for command: '{name}'.\n");
-        context.HelpBuilder.Write(command, sw);
-        context.Console.Write(sw.ToString());
-        return 0;
-    }
-
     public static IEnumerable<HelpSectionDelegate> HackHelpLayout(bool runStandalone)
     {
         var layout = HelpBuilder.Default.GetLayout();

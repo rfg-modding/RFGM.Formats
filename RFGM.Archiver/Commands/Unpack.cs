@@ -16,7 +16,10 @@ namespace RFGM.Archiver.Commands;
 
 public class Unpack : Command
 {
-    private readonly Argument<List<string>> inputArg = new("input", "File to unpack. Can specify multiple files or directories");
+    private readonly Argument<List<string>> inputArg = new("input", "File to unpack. Can specify multiple files or directories")
+    {
+        Arity = ArgumentArity.OneOrMore
+    };
 
     private readonly Option<string?> outputArg = new([
             "-o",
@@ -29,7 +32,7 @@ public class Unpack : Command
             "-d",
             "--default"
         ],
-        $"Use default unpack settings [ -i -r ]. Other flags will be ignored!");
+        $"Use default unpack settings [ -r ]. Other flags will be ignored!");
 
     private readonly Option<string> filterArg = new([
             "--filter",
@@ -52,11 +55,11 @@ public class Unpack : Command
         ],
         $"Unpack nested containers recursively in {Constants.DefaultUnpackDir} directories");
 
-    private readonly Option<bool> indexArg = new([
-            "-i",
-            "--index"
+    private readonly Option<bool> noPropsArg = new([
+            "-n",
+            "--noProperties"
         ],
-        "Unpack entries with ordered index filename prefix like \"00001 weapons.xtbl\". Used for packing");
+        "Unpack entries without important properties encoded in filename. Missing data makes these files impossible to pack!");
 
 
     private readonly Option<ImageFormat> textureArg = new([
@@ -116,8 +119,8 @@ NOTES:
         AddOption(defaultArg);
         AddOption(filterArg);
         AddOption(forceArg);
-        AddOption(indexArg);
         AddOption(metadataArg);
+        AddOption(noPropsArg);
         AddOption(optimizeArg);
         AddOption(outputArg);
         AddOption(parallelArg);
@@ -131,17 +134,12 @@ NOTES:
     private async Task<int> Handle(InvocationContext context, CancellationToken token)
     {
         var input = context.ParseResult.GetValueForArgument(inputArg);
-        if (!input.Any())
-        {
-            return await context.ForcePrintHelp(this);
-        }
-
         var output = context.ParseResult.GetValueForOption(outputArg)!;
         var isDefault =context.ParseResult.GetValueForOption(defaultArg);
         var filter = context.ParseResult.GetValueForOption(filterArg)!;
         var xmlFormat = context.ParseResult.GetValueForOption(xmlArg);
         var recursive = context.ParseResult.GetValueForOption(recursiveArg);
-        var index = context.ParseResult.GetValueForOption(indexArg);
+        var noProps = context.ParseResult.GetValueForOption(noPropsArg);
         var texture = context.ParseResult.GetValueForOption(textureArg);
         var metadata = context.ParseResult.GetValueForOption(metadataArg);
         var force = context.ParseResult.GetValueForOption(forceArg);
@@ -151,7 +149,7 @@ NOTES:
         var matcher = new Matcher(StringComparison.OrdinalIgnoreCase).AddInclude(filter);
         var settings = isDefault
             ? UnpackSettings.Default
-            : new UnpackSettings(matcher, texture, optimize, skip, index, xmlFormat, recursive, metadata, force);
+            : new UnpackSettings(matcher, texture, optimize, skip, !noProps, xmlFormat, recursive, metadata, force);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
         await archiver.Unpack(input, output, parallel, settings, token);
         return 0;

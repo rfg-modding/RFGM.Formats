@@ -52,7 +52,7 @@ public class ImageConverter(ILogger<ImageConverter> log)
                 }
                 return EncodeToRaw(pngImage, logicalTexture);
             case ImageFormat.raw:
-                return image;
+                return image.MakeDeepOwnCopy();
             default:
                 throw new ArgumentOutOfRangeException(nameof(imageFormat), imageFormat, null);
         }

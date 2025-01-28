@@ -66,11 +66,12 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
         var reader = new VppReader(message.Settings.OptimizeFor);
         var logicalArchive = await Task.Run(() => reader.Read(message.Primary, message.EntryInfo.Name, token), token);
         var logicalFiles = logicalArchive.LogicalFiles.ToList();
-        message.EntryInfo.Properties.Add(Properties.Mode, logicalArchive.Mode);
-        message.EntryInfo.Properties.Add(Properties.Entries, logicalFiles.Count);
+        message.EntryInfo.Properties.VppMode = logicalArchive.Mode;
+        message.EntryInfo.Properties.Entries = logicalFiles.Count;
         var breadcrumbs = message.Breadcrumbs.Descend(logicalArchive.Name);
         var relativePath = breadcrumbs.ToString();
-        var destination = message.Destination.Descend(message.EntryInfo.DirectoryName);
+        var name = message.EntryInfo.Descriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
+        var destination = message.Destination.Descend(name);
         var progress = new ProgressLogger($"Reading {relativePath}", logicalFiles.Count, log);
         // TODO filter by settings: type and glob
         foreach (var logicalFile in logicalFiles)
@@ -98,11 +99,12 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
         var streams = new PairedStreams(message.Primary, message.Secondary);
         var logicalArchive = await Task.Run(() =>reader.Read(streams.Cpu, streams.Gpu, message.EntryInfo.Name, token), token);
         var logicalFiles = logicalArchive.LogicalTextures.ToList();
-        message.EntryInfo.Properties.Add(Properties.Align, logicalArchive.Align);
-        message.EntryInfo.Properties.Add(Properties.Entries, logicalFiles.Count);
+        message.EntryInfo.Properties.PegAlign = logicalArchive.Align;
+        message.EntryInfo.Properties.Entries = logicalFiles.Count;
         var breadcrumbs = message.Breadcrumbs.Descend(logicalArchive.Name);
         var relativePath = breadcrumbs.ToString();
-        var destination = message.Destination.Descend(message.EntryInfo.DirectoryName);
+        var name = message.EntryInfo.Descriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
+        var destination = message.Destination.Descend(name);
         var result = new List<IMessage>();
         var progress = new ProgressLogger($"Reading {relativePath}", logicalFiles.Count, log);
         foreach (var logicalFile in logicalFiles)
@@ -122,11 +124,7 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
     private IEnumerable<IMessage> ProcessVppEntry(LogicalFile logicalFile, Stream? secondary, Breadcrumbs breadcrumbs, IDirectoryInfo destination, UnpackSettings settings)
     {
         var properties = new Properties();
-        if (settings.IndexEntries)
-        {
-            properties.Add(Properties.Index, logicalFile.Order);
-        }
-
+        properties.Index = logicalFile.Order;
         var entryDescriptor = FormatDescriptors.DetermineByName(logicalFile.Name);
         var entryInfo = new EntryInfo(logicalFile.Name, entryDescriptor, properties);
         return ProcessAnyNestedEntry(entryInfo, logicalFile.Content, secondary, breadcrumbs, destination, settings);
@@ -138,17 +136,14 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
     private IEnumerable<IMessage> ProcessPegEntry(LogicalTexture logicalFile, Breadcrumbs breadcrumbs, IDirectoryInfo destination, UnpackSettings settings)
     {
         var properties = new Properties();
-        if (settings.IndexEntries)
-        {
-            properties.Add(Properties.Index, logicalFile.Order);
-        }
-        properties.Add(Properties.Format, logicalFile.Format);
-        properties.Add(Properties.Flags, logicalFile.Flags);
-        properties.Add(Properties.MipLevels, logicalFile.MipLevels);
-        properties.Add(Properties.Size, logicalFile.Size);
-        properties.Add(Properties.Source, logicalFile.Source);
-        properties.Add(Properties.Align, logicalFile.Align);
-        properties.Add(Properties.ImageFormat, ImageFormat.raw);
+        properties.Index = logicalFile.Order;
+        properties.TexFmt = logicalFile.Format;
+        properties.TexFlags= logicalFile.Flags;
+        properties.TexMips= logicalFile.MipLevels;
+        properties.TexSize= logicalFile.Size;
+        properties.TexSrc= logicalFile.Source;
+        properties.PegAlign= logicalFile.Align;
+        properties.ImgFmt= ImageFormat.raw;
 
 
         var entryDescriptor = FormatDescriptors.DetermineByName(logicalFile.Name);
@@ -168,7 +163,8 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
 
         if (entryInfo.Descriptor.IsContainer && settings.Recursive)
         {
-            yield return new UnpackMessage(entryInfo, primary.MakeDeepOwnCopy(), secondary?.MakeDeepOwnCopy(), breadcrumbs, destination, settings);
+            var nestedDestination = FormatUtils.Descend(destination, Constants.DefaultUnpackDir);
+            yield return new UnpackMessage(entryInfo, primary.MakeDeepOwnCopy(), secondary?.MakeDeepOwnCopy(), breadcrumbs, nestedDestination, settings);
         }
 
         if (settings.Metadata)

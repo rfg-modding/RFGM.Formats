@@ -4,12 +4,13 @@ using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models.Messages;
 using RFGM.Formats;
 using RFGM.Formats.Abstractions;
+using RFGM.Formats.Localization;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
 
 namespace RFGM.Archiver.Services.Handlers;
 
-public class WriteFileHandler(FileManager fileManager, ImageConverter imageConverter, ILogger<WriteFileHandler> log) : HandlerBase<WriteFileMessage>
+public class WriteFileHandler(FileManager fileManager, ImageConverter imageConverter, LocatextReader locatextReader, ILogger<WriteFileHandler> log) : HandlerBase<WriteFileMessage>
 {
     public override async Task<IEnumerable<IMessage>> Handle(WriteFileMessage message, CancellationToken token)
     {
@@ -35,16 +36,28 @@ public class WriteFileHandler(FileManager fileManager, ImageConverter imageConve
         {
             {IsContainer: true} when message.Settings.SkipContainers => IgnoreContainer(path),
             XmlDescriptor when message.Settings.XmlFormat => WriteXml(message, token),
-            RawTextureDescriptor t => WriteTexture(t, message, token),
+            TextureDescriptor t => WriteTexture(t, message, token),
+            LocatextDescriptor => WriteLocalization(message),
             _ => WriteFile(message, token)
         };
 
         await task;
     }
 
+    private async Task WriteLocalization(WriteFileMessage message)
+    {
+        var locatext = locatextReader.Read(message.Primary, message.EntryInfo.Name, []);
+        var name = message.EntryInfo.Descriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
+        var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
+        await using var f = file.OpenWrite();
+        new LocatextWriter().WriteXml(locatext, f);
+    }
+
     private async Task WriteFile(WriteFileMessage message, CancellationToken token)
     {
-        var file = fileManager.CreateFileRecursive(message.Destination, message.EntryInfo.FileName, message.Settings.Force);
+        var fileDescriptor = FormatDescriptors.RegularFile;
+        var name = fileDescriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
+        var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
         await message.Primary.CopyToAsync(f, token);
     }
@@ -56,24 +69,20 @@ public class WriteFileHandler(FileManager fileManager, ImageConverter imageConve
         xml.Load(reader);
         using var ms = new MemoryStream();
         FormatUtils.SerializeToMemoryStream(xml, ms, true);
-        var file = fileManager.CreateFileRecursive(message.Destination, message.EntryInfo.FileName, message.Settings.Force);
+        var name = message.EntryInfo.Descriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
+        var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
         await ms.CopyToAsync(f, token);
     }
 
-    private async Task WriteTexture(RawTextureDescriptor descriptor, WriteFileMessage message, CancellationToken token)
+    private async Task WriteTexture(TextureDescriptor descriptor, WriteFileMessage message, CancellationToken token)
     {
-        var props = message.EntryInfo.Properties;
-        var size = props.Get<Size>(Properties.Size);
-        var source = props.Get<Size>(Properties.Source);
-        var bitmapFormat = props.Get<RfgCpeg.Entry.BitmapFormat>(Properties.Format);
-        var flags = props.Get<TextureFlags>(Properties.Flags);
-        var mipLevels = props.Get<int>(Properties.MipLevels);
-        var align = props.Get<int>(Properties.Align);
-        var texture = new LogicalTexture(size, source, Size.Zero, bitmapFormat, flags, mipLevels, 0, message.EntryInfo.Name, 0, 0, align, message.Primary);
+        var entry = message.EntryInfo;
+        var texture = descriptor.ToTexture(entry) with {Data = message.Primary};
         var imageFormat = message.Settings.ImageFormat;
         var image = await imageConverter.TextureToImage(texture, imageFormat, token);
-        var name = descriptor.GetFileSystemName(message.EntryInfo, imageFormat);
+        var newEntry = entry with {Properties = entry.Properties with {ImgFmt = message.Settings.ImageFormat}};
+        var name = newEntry.Descriptor.GetDecodeName(newEntry, message.Settings.WriteProperties);
         var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
         await image.CopyToAsync(f, token);

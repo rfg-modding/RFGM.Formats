@@ -65,4 +65,4 @@ void ConfigureServices(HostBuilderContext _, IServiceCollection services)
 /*
 TODO:
  * ImageConverter: colors are off when texture is converted to PNG, especially in normal maps. figure out why, maybe just wrong conversion in dxtex/imgsharp
-    */
+*/

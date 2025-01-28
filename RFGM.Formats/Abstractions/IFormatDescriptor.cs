@@ -8,15 +8,16 @@ namespace RFGM.Formats.Abstractions;
 /// </summary>
 public interface IFormatDescriptor
 {
-    Format Format { get; }
     bool CanDecode { get; }
     bool CanEncode { get; }
     bool IsPaired { get; }
     bool IsContainer { get; }
-    ImmutableHashSet<string> Extensions { get; }
-    bool Match(string name);
-    bool Match(IFileSystemInfo fileSystemInfo);
+    string Name { get; }
+    ImmutableHashSet<string> CanDecodeExtensions { get; }
+    ImmutableHashSet<string> CanEncodeExtensions { get; }
+    bool DecodeMatch(string name);
+    bool EncodeMatch(IFileSystemInfo fileSystemInfo);
+    string GetDecodeName(EntryInfo data, bool writeProperties);
+    string GetEncodeName(EntryInfo data);
     EntryInfo FromFileSystem(IFileSystemInfo fileSystemInfo);
-    string GetFileName(EntryInfo data);
-    string GetDirectoryName(EntryInfo data);
 }

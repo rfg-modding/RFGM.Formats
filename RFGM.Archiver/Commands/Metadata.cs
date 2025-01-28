@@ -11,7 +11,9 @@ namespace RFGM.Archiver.Commands;
 
 public class Metadata : Command
 {
-    private readonly Argument<List<string>> inputArg = new("input", "File to parse. Can specify multiple files or directories");
+    private readonly Argument<List<string>> inputArg = new("input", "File to parse. Can specify multiple files or directories"){
+        Arity = ArgumentArity.OneOrMore
+    };
 
     private readonly Option<int> parallelArg = new([
             "-p",
@@ -42,11 +44,6 @@ public class Metadata : Command
     private async Task<int> Handle(InvocationContext context, CancellationToken token)
     {
         var input = context.ParseResult.GetValueForArgument(inputArg);
-        if (!input.Any())
-        {
-            return await context.ForcePrintHelp(this);
-        }
-
         var parallel = context.ParseResult.GetValueForOption(parallelArg);
         var optimizeFor = context.ParseResult.GetValueForOption(optimizeArg);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();

@@ -132,6 +132,16 @@ public static class FormatUtils
     }
 
     /// <summary>
+    /// Splits "name.foo.bar" to "name" + ".foo.bar"
+    /// </summary>
+    public static (string name, string fullExt) GetNameAndFullExt(string input)
+    {
+        var ext = GetFullExtension(input);
+        var name = input[..^ext.Length];
+        return (name, ext);
+    }
+
+    /// <summary>
     /// Writes xmldoc without declaration to a memory stream. Stream is kept open and rewound to begin
     /// </summary>
     public static void SerializeToMemoryStream(XmlDocument document, MemoryStream ms, bool indent = false)

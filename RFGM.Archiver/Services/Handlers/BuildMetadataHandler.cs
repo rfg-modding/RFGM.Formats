@@ -11,7 +11,7 @@ public class BuildMetadataHandler() : HandlerBase<BuildMetadataMessage>
         token.ThrowIfCancellationRequested();
         var name = message.EntryInfo.Name;
         var path = message.Breadcrumbs.Descend(name).ToString();
-        var format = message.EntryInfo.Descriptor.Format.ToString();
+        var format = message.EntryInfo.Descriptor.Name;
         var isContainer = message.EntryInfo.Descriptor.IsContainer;
         var hash = await FormatUtils.ComputeHash(message.Primary, token);
         var length = message.Primary.Length;

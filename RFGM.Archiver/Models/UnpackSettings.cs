@@ -10,7 +10,7 @@ public record UnpackSettings(
     ImageFormat ImageFormat,
     OptimizeFor OptimizeFor,
     bool SkipContainers,
-    bool IndexEntries,
+    bool WriteProperties,
     bool XmlFormat,
     bool Recursive,
     bool Metadata,
@@ -44,7 +44,7 @@ public record UnpackSettings(
         sb.Append($"{nameof(ImageFormat)}={ImageFormat},");
         sb.Append($"{nameof(OptimizeFor)}={OptimizeFor},");
         sb.Append($"{nameof(SkipContainers)}={SkipContainers},");
-        sb.Append($"{nameof(IndexEntries)}={IndexEntries},");
+        sb.Append($"{nameof(WriteProperties)}={WriteProperties},");
         sb.Append($"{nameof(XmlFormat)}={XmlFormat},");
         sb.Append($"{nameof(Recursive)}={Recursive},");
         sb.Append($"{nameof(Metadata)}={Metadata},");

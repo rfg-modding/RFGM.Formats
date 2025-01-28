@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
 using RFGM.Archiver.Models.Messages;
 using RFGM.Formats.Abstractions;
+using RFGM.Formats.Localization;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
 using RFGM.Formats.Streams;
@@ -12,7 +13,7 @@ using RFGM.Formats.Vpp.Models;
 
 namespace RFGM.Archiver.Services.Handlers;
 
-public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManager, ImageConverter imageConverter, ILogger<PackDirectoryHandler> log) : HandlerBase<PackDirectoryMessage>
+public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManager, ImageConverter imageConverter, LocatextReader locatextReader, ILogger<PackDirectoryHandler> log) : HandlerBase<PackDirectoryMessage>
 {
     public override async Task<IEnumerable<IMessage>> Handle(PackDirectoryMessage message, CancellationToken token)
     {
@@ -54,14 +55,15 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         {
             PegDescriptor => await PackPeg(message, entryInfo, destination, token),
             Str2Descriptor or VppDescriptor => await PackVpp(message, entryInfo, destination, token),
-            RegularFileDescriptor or RawTextureDescriptor => await IgnoreNotContainer(message),
+            {IsContainer: false} => await IgnoreNotContainer(message),
             _ => throw new ArgumentOutOfRangeException()
         };
     }
 
     private async Task<FileResult> PackVpp(PackDirectoryMessage message, EntryInfo containerInfo, IDirectoryInfo destination, CancellationToken token)
     {
-        var entries = ProcessVppEntries(message, token)
+        var readEntries = await ProcessVppEntries(message, token);
+        var entries = readEntries
             .OrderBy(x => x.Order)
             .ThenBy(x => x.Name)
             .ToList();
@@ -77,23 +79,10 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
             throw new InvalidOperationException($"Container [{containerInfo.Name}] has duplicate files:\n{sb}");
         }
 
-        if (entries.Any(x => x.Order == -1) && entries.Any(x => x.Order != -1))
-        {
-            throw new InvalidOperationException($"Container [{containerInfo.Name}] has files with explicit order prefix and without prefix. Can't pack them together. Manually specify explicit order for all files or remove it");
-        }
-
-        if (entries.All(x => x.Order == -1))
-        {
-            log.LogWarning("Entry order is implicitly derived from file names");
-            var i = 0;
-            entries = entries
-                .Select(x => x with {Order = i++})
-                .ToList();
-        }
-
-        var container = new LogicalArchive(entries, containerInfo.Properties.Get<RfgVpp.HeaderBlock.Mode>(Properties.Mode), containerInfo.Name);
+        var container = new LogicalArchive(entries, containerInfo.Properties.VppMode!.Value, containerInfo.Name);
         using var writer = new VppWriter(container);
-        var file = fileManager.CreateFileRecursive(destination, containerInfo.FileName, message.Settings.Force);
+        var name = containerInfo.Descriptor.GetEncodeName(containerInfo);
+        var file = fileManager.CreateFileRecursive(destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
         log.LogDebug("Writing [{file}]", file.FullName);
         await writer.WriteAll(f, token);
@@ -138,10 +127,11 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
                 .ToList();
         }
 
-        var container = new LogicalTextureArchive(entries, containerInfo.Name, 0, 0, containerInfo.Properties.Get<int>(Properties.Align));
+        var container = new LogicalTextureArchive(entries, containerInfo.Name, 0, 0, containerInfo.Properties.PegAlign!);
         using var writer = new PegWriter(container);
-        var cpuFile = fileManager.CreateFileRecursive(destination, PairedFiles.GetCpuFileName(containerInfo.FileName)!, message.Settings.Force);
-        var gpuFile = fileManager.CreateFileRecursive(destination, PairedFiles.GetGpuFileName(containerInfo.FileName)!, message.Settings.Force);
+        var name = containerInfo.Descriptor.GetEncodeName(containerInfo);
+        var cpuFile = fileManager.CreateFileRecursive(destination, PairedFiles.GetCpuFileName(name)!, message.Settings.Force);
+        var gpuFile = fileManager.CreateFileRecursive(destination, PairedFiles.GetGpuFileName(name)!, message.Settings.Force);
         var pair = new PairedFiles(cpuFile, gpuFile, containerInfo.Name);
 
         await using var f = pair.OpenWrite();
@@ -155,22 +145,50 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return new FileResult(cpuFile, gpuFile);
     }
 
-    private IEnumerable<LogicalFile> ProcessVppEntries(PackDirectoryMessage message, CancellationToken token)
+    private async Task<List<LogicalFile>> ProcessVppEntries(PackDirectoryMessage message, CancellationToken token)
     {
+        var result = new List<LogicalFile>();
         var files = message.DirectoryInfo.EnumerateFiles().ToList();
         var progress = new ProgressLogger($"Reading directory {message.DirectoryInfo.FullName}", files.Count, log);
         foreach (var file in message.DirectoryInfo.EnumerateFiles())
         {
             token.ThrowIfCancellationRequested();
-            // pack all files, no special cases yet. TODO: update asm_pc, detect when it's needed
-            var entryInfo = FormatDescriptors.RegularFile.FromFileSystem(file);
-            if (entryInfo.Name.EndsWith(".asm_pc", StringComparison.OrdinalIgnoreCase))
+
+            var descriptor = FormatDescriptors.DetermineByFileSystem(file);
+            var (entry, data) = descriptor switch
             {
-                log.LogWarning("File [{name}] is an asm_pc asset assembler file. Any changes to sibling files require updating this asm_pc file, which is not supported yet. Be careful with your changes, game may crash!", file.Name);
-            }
-            yield return new LogicalFile(file.OpenRead(), entryInfo.Name, entryInfo.Properties.GetOrDefault(Properties.Index, -1), null, null);
+                LocatextDescriptor l => await ProcessLocalization(file, l, token),
+                TextureDescriptor => throw new InvalidOperationException("Textures must be packed into PEG containers"),
+                XmlDescriptor => throw new InvalidOperationException("Do not pack formatted xml"),
+                _ => ProcessRegularFile(file)
+            };
+            result.Add(new LogicalFile(data, entry.Name, entry.Properties.Index!, null, null));
             progress.Tick();
         }
+
+        return result;
+    }
+
+    private async Task<ProcessResult> ProcessLocalization(IFileInfo file, LocatextDescriptor locatextDescriptor, CancellationToken token)
+    {
+        var entry = locatextDescriptor.FromFileSystem(file);
+        await using var f = file.OpenRead();
+        var locatext = locatextReader.ReadXml(f, entry.Name);
+        var ms = new MemoryStream();
+        new LocatextWriter().Write(locatext, ms);
+        ms.Seek(0, SeekOrigin.Begin);
+        return new(entry, ms);
+    }
+
+    private ProcessResult ProcessRegularFile(IFileInfo file)
+    {
+        var entryInfo = FormatDescriptors.RegularFile.FromFileSystem(file);
+        if (entryInfo.Name.EndsWith(".asm_pc", StringComparison.OrdinalIgnoreCase))
+        {
+            log.LogWarning("File [{name}] is an asm_pc asset assembler file. Any changes to sibling files require updating this asm_pc file, which is not supported yet. Be careful with your changes, game may crash!", file.Name);
+        }
+
+        return new(entryInfo, file.OpenRead());
     }
 
     private async Task<List<LogicalTexture>> ProcessPegEntries(PackDirectoryMessage message, EntryInfo containerInfo, CancellationToken token)
@@ -187,18 +205,10 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
                 continue;
             }
 
-            var (name, _, props) = textureDescriptor.FromFileSystem(file);
-            var order = props.GetOrDefault(Properties.Index, -1);
-            var format = props.Get<RfgCpeg.Entry.BitmapFormat>(Properties.Format);
-            var flags = props.Get<TextureFlags>(Properties.Flags);
-            var mipLevels = props.Get<int>(Properties.MipLevels);
-            var size = props.Get<Size>(Properties.Size);
-            var source = props.Get<Size>(Properties.Source);
-            var align = containerInfo.Properties.Get<int>(Properties.Align);
-            var imageFormat = props.Get<ImageFormat>(Properties.ImageFormat);
+            var entry = textureDescriptor.FromFileSystem(file);
             await using var f = file.OpenRead();
-            var tmp = new LogicalTexture(size, source, Size.Zero, format, flags, mipLevels, order, name, 0, 0, align, Stream.Null);
-            var texture = await imageConverter.ImageToTexture(f, imageFormat, tmp, token);
+            var tmp = textureDescriptor.ToTexture(entry);
+            var texture = await imageConverter.ImageToTexture(f, entry.Properties.ImgFmt!.Value, tmp, token);
             result.Add(tmp with{Data = texture});
             progress.Tick();
         }
@@ -213,4 +223,6 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
     }
 
     private record FileResult(IFileInfo? Primary, IFileInfo? Secondary);
+
+    private record ProcessResult(EntryInfo EntryInfo, Stream Data);
 }

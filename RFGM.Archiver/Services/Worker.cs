@@ -97,7 +97,7 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
             var failure = new Failure(message, $"ActionBlock canceled", null);
             failed.Add(failure);
             actionBlock.Complete();
-            log.LogError("Canceled. Tasks still running: {tasks}", actualInFlight);
+            log.LogError("Canceled. Shutting down tasks: {tasks}", actualInFlight);
             return;
         }
 
