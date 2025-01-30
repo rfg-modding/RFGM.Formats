@@ -4,6 +4,7 @@ using RFGM.Archiver.Models;
 using RFGM.Archiver.Models.Messages;
 using RFGM.Formats;
 using RFGM.Formats.Abstractions;
+using RFGM.Formats.Abstractions.Descriptors;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
 using RFGM.Formats.Streams;
@@ -32,12 +33,6 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
 
     private async Task<IEnumerable<IMessage>> HandleInternal(UnpackMessage message, CancellationToken token)
     {
-        if (!message.EntryInfo.Descriptor.IsContainer)
-        {
-            log.LogWarning("Not a container: [{name}]", message.EntryInfo.Name);
-            return [];
-        }
-
         if (message.EntryInfo.Descriptor.IsPaired && message.Secondary is null)
         {
             log.LogTrace("Skip [{name}] without secondary stream", message.EntryInfo.Name);
@@ -46,10 +41,16 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
 
         return message.EntryInfo.Descriptor switch
         {
+            {IsContainer:false} => UnpackNonContainer(message),
             VppDescriptor or Str2Descriptor => await UnpackVpp(message, token),
             PegDescriptor => await UnpackPeg(message, token),
             _ => throw new ArgumentOutOfRangeException()
         };
+    }
+
+    private IEnumerable<IMessage> UnpackNonContainer(UnpackMessage message)
+    {
+        return [new DecodeFileMessage(message.EntryInfo, message.Primary.MakeDeepOwnCopy(), message.Breadcrumbs, message.Destination, message.Settings)];
     }
 
     /// <summary>
@@ -125,7 +126,7 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
     {
         var properties = new Properties();
         properties.Index = logicalFile.Order;
-        var entryDescriptor = FormatDescriptors.DetermineByName(logicalFile.Name);
+        var entryDescriptor = FormatDescriptors.MatchForDecoding(logicalFile.Name);
         var entryInfo = new EntryInfo(logicalFile.Name, entryDescriptor, properties);
         return ProcessAnyNestedEntry(entryInfo, logicalFile.Content, secondary, breadcrumbs, destination, settings);
     }
@@ -146,7 +147,7 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
         properties.ImgFmt= ImageFormat.raw;
 
 
-        var entryDescriptor = FormatDescriptors.DetermineByName(logicalFile.Name);
+        var entryDescriptor = FormatDescriptors.MatchForDecoding(logicalFile.Name);
         var entryInfo = new EntryInfo(logicalFile.Name, entryDescriptor, properties);
         return ProcessAnyNestedEntry(entryInfo, logicalFile.Data, null, breadcrumbs, destination, settings);
     }
@@ -158,18 +159,18 @@ public class UnpackHandler(ILogger<UnpackHandler> log) : HandlerBase<UnpackMessa
     {
         if (entryInfo.Descriptor.IsContainer == false || settings.SkipContainers == false)
         {
-            yield return new WriteFileMessage(entryInfo, primary.MakeDeepOwnCopy(), breadcrumbs, destination, settings);
+            yield return new DecodeFileMessage(entryInfo, primary.MakeDeepOwnCopy(), breadcrumbs, destination, settings);
         }
 
         if (entryInfo.Descriptor.IsContainer && settings.Recursive)
         {
-            var nestedDestination = FormatUtils.Descend(destination, Constants.DefaultUnpackDir);
-            yield return new UnpackMessage(entryInfo, primary.MakeDeepOwnCopy(), secondary?.MakeDeepOwnCopy(), breadcrumbs, nestedDestination, settings);
+            var nestedDestination = destination.Descend(Constants.DefaultUnpackDir);
+            yield return new UnpackMessage(entryInfo.MakeDeepCopy(), primary.MakeDeepOwnCopy(), secondary?.MakeDeepOwnCopy(), breadcrumbs, nestedDestination, settings);
         }
 
         if (settings.Metadata)
         {
-            yield return new BuildMetadataMessage(entryInfo, breadcrumbs, primary.MakeDeepOwnCopy());
+            yield return new CollectMetadataMessage(entryInfo, breadcrumbs, primary.MakeDeepOwnCopy());
         }
     }
 

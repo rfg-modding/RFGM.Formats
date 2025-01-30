@@ -14,16 +14,17 @@ public record UnpackSettings(
     bool XmlFormat,
     bool Recursive,
     bool Metadata,
-    bool Force
+    bool Force,
+    bool Localization
 )
 {
     public static readonly Matcher DefaultMatcher = new Matcher(StringComparison.OrdinalIgnoreCase).AddInclude("**/*");
 
     public static readonly Matcher EmptyMatcher = new();
 
-    public static readonly UnpackSettings Default = new(DefaultMatcher, ImageFormat.png, OptimizeFor.speed, false, true, false, true, false, false);
+    public static readonly UnpackSettings Default = new(DefaultMatcher, ImageFormat.png, OptimizeFor.speed, false, true, false, true, false, false, true);
 
-    public static readonly UnpackSettings Meta = new(EmptyMatcher, ImageFormat.raw, OptimizeFor.speed, false, false, false, true, true, false);
+    public static readonly UnpackSettings Meta = new(EmptyMatcher, ImageFormat.raw, OptimizeFor.speed, false, false, false, true, true, false, false);
 
     public override string? ToString() => this switch
     {

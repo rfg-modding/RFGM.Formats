@@ -179,7 +179,7 @@ public sealed class VppWriter(LogicalArchive logicalArchive)
         NOTE: how to get compDataSize for compressed-only mode?
         */
 
-        var ext = FormatUtils.GetFullExtension(logicalArchive.Name).ToLower(CultureInfo.InvariantCulture);
+        var ext = FormatUtils.GetLastExtension(logicalArchive.Name).ToLower(CultureInfo.InvariantCulture);
         // all str2 are the same
         if (ext == ".str2_pc")
         {

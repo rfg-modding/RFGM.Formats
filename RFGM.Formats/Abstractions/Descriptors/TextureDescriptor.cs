@@ -1,11 +1,8 @@
-using System.Collections.Immutable;
 using System.IO.Abstractions;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
 
-namespace RFGM.Formats.Abstractions;
+namespace RFGM.Formats.Abstractions.Descriptors;
 
 /// <summary>
 /// tga files (DDS textures without header), converted textures (png, dds, raw)

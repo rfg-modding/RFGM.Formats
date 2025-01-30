@@ -1,9 +1,4 @@
-using System.Collections.Immutable;
-using System.IO.Abstractions;
-using System.Text.RegularExpressions;
-using RFGM.Formats.Vpp.Models;
-
-namespace RFGM.Formats.Abstractions;
+namespace RFGM.Formats.Abstractions.Descriptors;
 
 /// <summary>
 /// vpp_pc archives (like str2, with asm metadata)

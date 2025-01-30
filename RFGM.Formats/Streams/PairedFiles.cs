@@ -30,7 +30,7 @@ public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
     /// </summary>
     public static string? GetCpuFileName(string fileName)
     {
-        var extWithDot = FormatUtils.GetFullExtension(fileName).ToLowerInvariant();
+        var extWithDot = FormatUtils.GetLastExtension(fileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extWithDot))
         {
             return null;
@@ -54,7 +54,7 @@ public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
     /// </summary>
     public static string? GetGpuFileName(string fileName)
     {
-        var extWithDot = FormatUtils.GetFullExtension(fileName).ToLowerInvariant();
+        var extWithDot = FormatUtils.GetLastExtension(fileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extWithDot))
         {
             return null;

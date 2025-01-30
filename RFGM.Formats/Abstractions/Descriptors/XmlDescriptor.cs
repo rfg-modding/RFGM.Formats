@@ -1,8 +1,6 @@
-using System.Collections.Immutable;
 using System.IO.Abstractions;
-using System.Text.RegularExpressions;
 
-namespace RFGM.Formats.Abstractions;
+namespace RFGM.Formats.Abstractions.Descriptors;
 
 /// <summary>
 /// xml-like files: xtbl, dtdox, gtodx
@@ -13,7 +11,7 @@ public class XmlDescriptor : FormatDescriptorBase
     public override bool IsContainer => false;
     protected override List<string> CanDecodeExt => [
         ".xtbl",
-        ".dtdox",
+        ".dtodx",
         ".gtodx",
     ];
 
@@ -21,7 +19,7 @@ public class XmlDescriptor : FormatDescriptorBase
     [
     ];
 
-    protected override bool EncodeMatchInternal(IFileSystemInfo fileSystemInfo) => false;
+    protected override bool EncodeMatchInternal(string name) => false;
 
     protected override EntryInfo FromFileSystemInternal(IFileSystemInfo fileSystemInfo)
     {

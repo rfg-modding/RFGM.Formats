@@ -62,13 +62,23 @@ public static class FormatUtils
     {
         return value switch
         {
-            FileSystemStream fs => new FileStream(fs.Name, FileMode.Open, FileAccess.Read, FileShare.Read),
+            FileSystemStream fs when fs.GetType().Name == "MockFileStream" => CopyToMs(fs), // for tests
+            FileSystemStream fs =>  new FileStream(fs.Name, FileMode.Open, FileAccess.Read, FileShare.Read),
             FileStream f => new FileStream(f.Name, FileMode.Open, FileAccess.Read, FileShare.Read),
             StreamView sv => new StreamView(MakeDeepOwnCopy(sv.UnderlyingStream), sv.ViewStart, sv.Length, sv.Name + "+") {IsStreamOwner = true},
             SeekableInflaterStream si => new SeekableInflaterStream(MakeDeepOwnCopy(si.UnderlyingStream), si.Length, si.Name) {IsStreamOwner = true},
             MemoryStream ms => new StreamView(ms, 0, ms.Length, "fake MemoryStream copy"){IsStreamOwner = false}, // dont ever copy memory, just wrap it in thread-safe manner
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Only view, inflater and file streams are supported")
         };
+
+        Stream CopyToMs(Stream s)
+        {
+            var view = new StreamView(s, 0, s.Length, "tmp mock view");
+            var ms = new MemoryStream();
+            view.CopyTo(ms);
+            ms.Seek(0, SeekOrigin.Begin);
+            return ms;
+        }
     }
 
     /// <summary>
@@ -118,14 +128,9 @@ public static class FormatUtils
         return parent.FileSystem.DirectoryInfo.New(path);
     }
 
-    public static string GetFullExtension(this IFileSystemInfo info)
+    public static string GetLastExtension(string name)
     {
-        return GetFullExtension(info.Name);
-    }
-
-    public static string GetFullExtension(string name)
-    {
-        var firstDot = name.IndexOf('.');
+        var firstDot = name.LastIndexOf('.');
         return firstDot == -1
             ? string.Empty
             : name[firstDot..];
@@ -136,7 +141,7 @@ public static class FormatUtils
     /// </summary>
     public static (string name, string fullExt) GetNameAndFullExt(string input)
     {
-        var ext = GetFullExtension(input);
+        var ext = GetLastExtension(input);
         var name = input[..^ext.Length];
         return (name, ext);
     }

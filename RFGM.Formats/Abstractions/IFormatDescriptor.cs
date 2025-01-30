@@ -16,8 +16,8 @@ public interface IFormatDescriptor
     ImmutableHashSet<string> CanDecodeExtensions { get; }
     ImmutableHashSet<string> CanEncodeExtensions { get; }
     bool DecodeMatch(string name);
-    bool EncodeMatch(IFileSystemInfo fileSystemInfo);
+    bool EncodeMatch(string name);
     string GetDecodeName(EntryInfo data, bool writeProperties);
     string GetEncodeName(EntryInfo data);
-    EntryInfo FromFileSystem(IFileSystemInfo fileSystemInfo);
+    EntryInfo ReadEntryForEncoding(IFileSystemInfo fileSystemInfo);
 }

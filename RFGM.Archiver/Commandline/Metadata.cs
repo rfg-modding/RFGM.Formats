@@ -3,11 +3,10 @@ using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileSystemGlobbing;
 using RFGM.Archiver.Models;
 using RFGM.Formats;
 
-namespace RFGM.Archiver.Commands;
+namespace RFGM.Archiver.Commandline;
 
 public class Metadata : Command
 {
@@ -48,7 +47,6 @@ public class Metadata : Command
         var optimizeFor = context.ParseResult.GetValueForOption(optimizeArg);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
         var settings = UnpackSettings.Meta with { OptimizeFor = optimizeFor };
-        await archiver.UnpackMetadata(input, parallel, settings, token);
-        return 0;
+        return (int) await archiver.CommandMetadata(input, parallel, settings, token);
     }
 }

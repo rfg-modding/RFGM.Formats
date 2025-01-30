@@ -4,15 +4,15 @@ using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models.Messages;
 using RFGM.Formats;
 using RFGM.Formats.Abstractions;
+using RFGM.Formats.Abstractions.Descriptors;
 using RFGM.Formats.Localization;
 using RFGM.Formats.Peg;
-using RFGM.Formats.Peg.Models;
 
 namespace RFGM.Archiver.Services.Handlers;
 
-public class WriteFileHandler(FileManager fileManager, ImageConverter imageConverter, LocatextReader locatextReader, ILogger<WriteFileHandler> log) : HandlerBase<WriteFileMessage>
+public class DecodeFileHandler(FileManager fileManager, ImageConverter imageConverter, LocatextReader locatextReader, ILogger<DecodeFileHandler> log) : HandlerBase<DecodeFileMessage>
 {
-    public override async Task<IEnumerable<IMessage>> Handle(WriteFileMessage message, CancellationToken token)
+    public override async Task<IEnumerable<IMessage>> Handle(DecodeFileMessage message, CancellationToken token)
     {
         ArgumentOutOfRangeException.ThrowIfNotEqual(message.Primary.Position, 0);
         await using (message.Primary)
@@ -23,7 +23,7 @@ public class WriteFileHandler(FileManager fileManager, ImageConverter imageConve
         return [];
     }
 
-    private async Task HandleInternal(WriteFileMessage message, CancellationToken token)
+    private async Task HandleInternal(DecodeFileMessage message, CancellationToken token)
     {
         var path = message.Breadcrumbs.Descend(message.EntryInfo.Name).ToString();
         if (!message.Settings.Matcher.Match(path).HasMatches)
@@ -37,32 +37,34 @@ public class WriteFileHandler(FileManager fileManager, ImageConverter imageConve
             {IsContainer: true} when message.Settings.SkipContainers => IgnoreContainer(path),
             XmlDescriptor when message.Settings.XmlFormat => WriteXml(message, token),
             TextureDescriptor t => WriteTexture(t, message, token),
-            LocatextDescriptor => WriteLocalization(message),
+            LocatextDescriptor when message.Settings.Localization => WriteLocalization(message),
             _ => WriteFile(message, token)
         };
 
         await task;
     }
 
-    private async Task WriteLocalization(WriteFileMessage message)
+    private async Task WriteLocalization(DecodeFileMessage message)
     {
         var locatext = locatextReader.Read(message.Primary, message.EntryInfo.Name, []);
         var name = message.EntryInfo.Descriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
         var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
+        log.LogDebug("Writing [{file}]", file.FullName);
         new LocatextWriter().WriteXml(locatext, f);
     }
 
-    private async Task WriteFile(WriteFileMessage message, CancellationToken token)
+    private async Task WriteFile(DecodeFileMessage message, CancellationToken token)
     {
         var fileDescriptor = FormatDescriptors.RegularFile;
         var name = fileDescriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
         var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
+        log.LogDebug("Writing [{file}]", file.FullName);
         await message.Primary.CopyToAsync(f, token);
     }
 
-    private async Task WriteXml(WriteFileMessage message, CancellationToken token)
+    private async Task WriteXml(DecodeFileMessage message, CancellationToken token)
     {
         var xml = new XmlDocument();
         using var reader = new StreamReader(message.Primary);
@@ -72,10 +74,11 @@ public class WriteFileHandler(FileManager fileManager, ImageConverter imageConve
         var name = message.EntryInfo.Descriptor.GetDecodeName(message.EntryInfo, message.Settings.WriteProperties);
         var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
+        log.LogDebug("Writing [{file}]", file.FullName);
         await ms.CopyToAsync(f, token);
     }
 
-    private async Task WriteTexture(TextureDescriptor descriptor, WriteFileMessage message, CancellationToken token)
+    private async Task WriteTexture(TextureDescriptor descriptor, DecodeFileMessage message, CancellationToken token)
     {
         var entry = message.EntryInfo;
         var texture = descriptor.ToTexture(entry) with {Data = message.Primary};
@@ -85,6 +88,7 @@ public class WriteFileHandler(FileManager fileManager, ImageConverter imageConve
         var name = newEntry.Descriptor.GetDecodeName(newEntry, message.Settings.WriteProperties);
         var file = fileManager.CreateFileRecursive(message.Destination, name, message.Settings.Force);
         await using var f = file.OpenWrite();
+        log.LogDebug("Writing [{file}]", file.FullName);
         await image.CopyToAsync(f, token);
     }
 

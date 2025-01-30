@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
 using RFGM.Archiver.Models.Messages;
 using RFGM.Formats.Abstractions;
+using RFGM.Formats.Abstractions.Descriptors;
 using RFGM.Formats.Localization;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Peg.Models;
@@ -13,35 +14,34 @@ using RFGM.Formats.Vpp.Models;
 
 namespace RFGM.Archiver.Services.Handlers;
 
-public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManager, ImageConverter imageConverter, LocatextReader locatextReader, ILogger<PackDirectoryHandler> log) : HandlerBase<PackDirectoryMessage>
+public class StartPackHandler(IFileSystem fileSystem, FileManager fileManager, ImageConverter imageConverter, LocatextReader locatextReader, ArchiverState archiverState, ILogger<StartPackHandler> log) : HandlerBase<StartPackMessage>
 {
-    public override async Task<IEnumerable<IMessage>> Handle(PackDirectoryMessage message, CancellationToken token)
+    public override async Task<IEnumerable<IMessage>> Handle(StartPackMessage message, CancellationToken token)
     {
         var destination = fileSystem.Path.IsPathFullyQualified(message.Destination)
             ? fileSystem.DirectoryInfo.New(message.Destination)
-            : fileSystem.DirectoryInfo.New(fileSystem.Path.Combine(message.DirectoryInfo.Parent!.FullName, message.Destination));
+            // TODO if it's a file, does fake NewDirectory.Parent return parent?
+            : fileSystem.DirectoryInfo.New(fileSystem.Path.Combine(fileSystem.DirectoryInfo.New(message.FileSystemInfo.FullName).Parent!.FullName, message.Destination));
 
-        var descriptor = FormatDescriptors.DetermineByFileSystem(message.DirectoryInfo);
-        var entryInfo = descriptor.FromFileSystem(message.DirectoryInfo);
-        log.LogTrace("Packing {entry} ", entryInfo);
-        Archiver.Destinations.Add(destination.FullName);
-
+        var descriptor = FormatDescriptors.MatchForEncoding(message.FileSystemInfo.Name);
+        log.LogTrace("Packing {name} as {descriptor}", message.FileSystemInfo.Name, descriptor.Name);
+        var entryInfo = descriptor.ReadEntryForEncoding(message.FileSystemInfo);
+        archiverState.RememberDestination(destination.FullName);
         var fileResult = await HandleInternal(message, entryInfo, destination, token);
-
         var result = new List<IMessage>();
         if (message.Settings.Metadata)
         {
             if (fileResult.Primary is not null)
             {
                 var fakeInfo = new EntryInfo(fileResult.Primary.Name, descriptor, new Properties());
-                result.Add(new BuildMetadataMessage(fakeInfo, Breadcrumbs.Init(), fileResult.Primary.OpenRead()));
+                result.Add(new CollectMetadataMessage(fakeInfo, Breadcrumbs.Init(), fileResult.Primary.OpenRead()));
                 // fake no-op unpack to collect metadata from nested entries
                 result.Add(new UnpackMessage(fakeInfo, fileResult.Primary.OpenRead(), fileResult.Secondary?.OpenRead(), Breadcrumbs.Init(), destination, UnpackSettings.Meta));
             }
             if (fileResult.Secondary is not null)
             {
                 var secondaryFakeInfo = new EntryInfo(fileResult.Secondary.Name, descriptor, new Properties());
-                result.Add(new BuildMetadataMessage(secondaryFakeInfo, Breadcrumbs.Init(), fileResult.Secondary.OpenRead()));
+                result.Add(new CollectMetadataMessage(secondaryFakeInfo, Breadcrumbs.Init(), fileResult.Secondary.OpenRead()));
             }
 
         }
@@ -49,23 +49,36 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return result;
     }
 
-    private async Task<FileResult> HandleInternal(PackDirectoryMessage message, EntryInfo entryInfo, IDirectoryInfo destination, CancellationToken token)
+    private async Task<FileResult> HandleInternal(StartPackMessage message, EntryInfo entryInfo, IDirectoryInfo destination, CancellationToken token)
     {
         return entryInfo.Descriptor switch
         {
             PegDescriptor => await PackPeg(message, entryInfo, destination, token),
             Str2Descriptor or VppDescriptor => await PackVpp(message, entryInfo, destination, token),
+            LocatextDescriptor l => await EncodeLocalization(message, destination, l, token),
             {IsContainer: false} => await IgnoreNotContainer(message),
             _ => throw new ArgumentOutOfRangeException()
         };
     }
 
-    private async Task<FileResult> PackVpp(PackDirectoryMessage message, EntryInfo containerInfo, IDirectoryInfo destination, CancellationToken token)
+    private async Task<FileResult> EncodeLocalization(StartPackMessage message, IDirectoryInfo destination, LocatextDescriptor descriptor, CancellationToken token)
+    {
+        var fileToEncode = fileSystem.FileInfo.New(message.FileSystemInfo.FullName);
+        var (encodeEntryInfo, encodeStream) = await ProcessLocalization(fileToEncode, descriptor);
+        var name = descriptor.GetEncodeName(encodeEntryInfo);
+        var file = fileManager.CreateFileRecursive(destination, name, message.Settings.Force);
+        await using var f = file.OpenWrite();
+        log.LogDebug("Writing [{file}]", file.FullName);
+        await encodeStream.CopyToAsync(f, token);
+        return new FileResult(file, null);
+    }
+
+    private async Task<FileResult> PackVpp(StartPackMessage message, EntryInfo containerInfo, IDirectoryInfo destination, CancellationToken token)
     {
         var readEntries = await ProcessVppEntries(message, token);
         var entries = readEntries
             .OrderBy(x => x.Order)
-            .ThenBy(x => x.Name)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var duplicates = entries.GroupBy(x => x.Name).Where(g => g.Count() > 1).ToList();
@@ -94,12 +107,12 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return new FileResult(file, null);
     }
 
-    private async Task<FileResult> PackPeg(PackDirectoryMessage message, EntryInfo containerInfo, IDirectoryInfo destination, CancellationToken token)
+    private async Task<FileResult> PackPeg(StartPackMessage message, EntryInfo containerInfo, IDirectoryInfo destination, CancellationToken token)
     {
         var entries = await ProcessPegEntries(message, containerInfo, token);
         entries = entries
             .OrderBy(x => x.Order)
-            .ThenBy(x => x.Name)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var duplicates = entries.GroupBy(x => x.Name).Where(g => g.Count() > 1).ToList();
@@ -111,20 +124,6 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
                 sb.AppendLine($"\t{d.First().Name}");
             }
             throw new InvalidOperationException($"Container [{containerInfo.Name}] has duplicate files:\n{sb}");
-        }
-
-        if (entries.Any(x => x.Order == -1) && entries.Any(x => x.Order != -1))
-        {
-            throw new InvalidOperationException($"Container [{containerInfo.Name}] has files with explicit order prefix and without prefix. Can't pack them together. Manually specify explicit order for all files or remove it");
-        }
-
-        if (entries.All(x => x.Order == -1))
-        {
-            log.LogWarning("Entry order is implicitly derived from file names");
-            var i = 0;
-            entries = entries
-                .Select(x => x with {Order = i++})
-                .ToList();
         }
 
         var container = new LogicalTextureArchive(entries, containerInfo.Name, 0, 0, containerInfo.Properties.PegAlign!);
@@ -145,23 +144,28 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return new FileResult(cpuFile, gpuFile);
     }
 
-    private async Task<List<LogicalFile>> ProcessVppEntries(PackDirectoryMessage message, CancellationToken token)
+    private async Task<List<LogicalFile>> ProcessVppEntries(StartPackMessage message, CancellationToken token)
     {
+        var directory = fileSystem.DirectoryInfo.New(message.FileSystemInfo.FullName);
         var result = new List<LogicalFile>();
-        var files = message.DirectoryInfo.EnumerateFiles().ToList();
-        var progress = new ProgressLogger($"Reading directory {message.DirectoryInfo.FullName}", files.Count, log);
-        foreach (var file in message.DirectoryInfo.EnumerateFiles())
+        var files = directory.EnumerateFiles().ToList();
+        var progress = new ProgressLogger($"Reading directory {message.FileSystemInfo.FullName}", files.Count, log);
+        foreach (var file in files)
         {
             token.ThrowIfCancellationRequested();
 
-            var descriptor = FormatDescriptors.DetermineByFileSystem(file);
+            var descriptor = FormatDescriptors.MatchForEncoding(file.Name);
             var (entry, data) = descriptor switch
             {
-                LocatextDescriptor l => await ProcessLocalization(file, l, token),
+                LocatextDescriptor l => await ProcessLocalization(file, l),
                 TextureDescriptor => throw new InvalidOperationException("Textures must be packed into PEG containers"),
                 XmlDescriptor => throw new InvalidOperationException("Do not pack formatted xml"),
                 _ => ProcessRegularFile(file)
             };
+            if (entry.Properties.Index == null)
+            {
+                throw new InvalidOperationException($"Missing index property! [{entry}]");
+            }
             result.Add(new LogicalFile(data, entry.Name, entry.Properties.Index!, null, null));
             progress.Tick();
         }
@@ -169,9 +173,9 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return result;
     }
 
-    private async Task<ProcessResult> ProcessLocalization(IFileInfo file, LocatextDescriptor locatextDescriptor, CancellationToken token)
+    private async Task<ProcessResult> ProcessLocalization(IFileInfo file, LocatextDescriptor locatextDescriptor)
     {
-        var entry = locatextDescriptor.FromFileSystem(file);
+        var entry = locatextDescriptor.ReadEntryForEncoding(file);
         await using var f = file.OpenRead();
         var locatext = locatextReader.ReadXml(f, entry.Name);
         var ms = new MemoryStream();
@@ -182,7 +186,7 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
 
     private ProcessResult ProcessRegularFile(IFileInfo file)
     {
-        var entryInfo = FormatDescriptors.RegularFile.FromFileSystem(file);
+        var entryInfo = FormatDescriptors.RegularFile.ReadEntryForEncoding(file);
         if (entryInfo.Name.EndsWith(".asm_pc", StringComparison.OrdinalIgnoreCase))
         {
             log.LogWarning("File [{name}] is an asm_pc asset assembler file. Any changes to sibling files require updating this asm_pc file, which is not supported yet. Be careful with your changes, game may crash!", file.Name);
@@ -191,21 +195,22 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return new(entryInfo, file.OpenRead());
     }
 
-    private async Task<List<LogicalTexture>> ProcessPegEntries(PackDirectoryMessage message, EntryInfo containerInfo, CancellationToken token)
+    private async Task<List<LogicalTexture>> ProcessPegEntries(StartPackMessage message, EntryInfo containerInfo, CancellationToken token)
     {
+        var directory = fileSystem.DirectoryInfo.New(message.FileSystemInfo.FullName);
         var result = new List<LogicalTexture>();
-        var files = message.DirectoryInfo.EnumerateFiles().ToList();
-        var progress = new ProgressLogger($"Reading directory {message.DirectoryInfo.FullName}", files.Count, log);
-        foreach (var file in message.DirectoryInfo.EnumerateFiles())
+        var files = directory.EnumerateFiles().ToList();
+        var progress = new ProgressLogger($"Reading directory {message.FileSystemInfo.FullName}", files.Count, log);
+        foreach (var file in files)
         {
             token.ThrowIfCancellationRequested();
-            if (FormatDescriptors.DetermineByFileSystem(file) is not TextureDescriptor textureDescriptor)
+            if (FormatDescriptors.MatchForEncoding(file.Name) is not TextureDescriptor textureDescriptor)
             {
                 log.LogWarning("File [{name}] is not a texture, skipped", file.Name);
                 continue;
             }
 
-            var entry = textureDescriptor.FromFileSystem(file);
+            var entry = textureDescriptor.ReadEntryForEncoding(file);
             await using var f = file.OpenRead();
             var tmp = textureDescriptor.ToTexture(entry);
             var texture = await imageConverter.ImageToTexture(f, entry.Properties.ImgFmt!.Value, tmp, token);
@@ -216,9 +221,9 @@ public class PackDirectoryHandler(IFileSystem fileSystem, FileManager fileManage
         return result;
     }
 
-    private Task<FileResult> IgnoreNotContainer(PackDirectoryMessage message)
+    private Task<FileResult> IgnoreNotContainer(StartPackMessage message)
     {
-        log.LogTrace("Skipped packing [{path}]: not a container format", message.DirectoryInfo.FullName);
+        log.LogTrace("Skipped packing [{path}]: not a container format", message.FileSystemInfo.FullName);
         return Task.FromResult(new FileResult(null, null));
     }
 

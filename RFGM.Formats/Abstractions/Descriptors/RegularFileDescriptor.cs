@@ -1,8 +1,4 @@
-using System.Collections.Immutable;
-using System.IO.Abstractions;
-using System.Text.RegularExpressions;
-
-namespace RFGM.Formats.Abstractions;
+namespace RFGM.Formats.Abstractions.Descriptors;
 
 /// <summary>
 /// just a file without conversions or magic
@@ -31,7 +27,7 @@ public class RegularFileDescriptor : FormatDescriptorBase
     /// <summary>
     /// Should return false to avoid matching with any files. This descriptor is selected manually as last resort
     /// </summary>
-    protected override bool EncodeMatchInternal(IFileSystemInfo fileSystemInfo) => false;
+    protected override bool EncodeMatchInternal(string name) => false;
 
     protected override string GetDecodeExt(string originalExt) => originalExt;
 

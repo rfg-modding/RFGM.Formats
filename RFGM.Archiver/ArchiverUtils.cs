@@ -1,4 +1,3 @@
-using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.CommandLine.Help;
 using System.CommandLine.Hosting;
@@ -10,12 +9,47 @@ using NLog.Filters;
 using NLog.Layouts;
 using NLog.Targets;
 using NLog.Targets.Wrappers;
+using RFGM.Formats.Abstractions;
 
 
 namespace RFGM.Archiver;
 
 public static class ArchiverUtils
 {
+    /// <summary>
+    /// Should fit into default console window when .exe is double-clicked
+    /// </summary>
+    public static readonly string Banner = $"""
+                            ___ ___ ___ __  __                            
+                           | _ \ __/ __|  \/  |             
+                           |   / _| (_ | |\/| |             
+                           |_|_\_| \___|_|  |_|             
+                    /_\  _ _ __| |_ (_)_ _____ _ _ 
+                   / _ \| '_/ _| ' \| \ V / -_) '_|
+                  /_/ \_\_| \__|_||_|_|\_/\___|_|               
+
+            🔨 Packer-Unpacker for RFG Re-MARS-tered 🔨         
+ ╔════════════════╤══════════════════════════════════════════════╗
+ ║ BASIC USAGE    ╪ drag&drop files on the .exe to unpack/pack   ║
+ ║ advanced       ╪ use commandline for more features            ║
+ ╟──────────────────────── Pack Examples ────────────────────────╢
+ ║ modfolder.vpp_pc/  +  archiver.exe  =  .pack/modfolder.vpp_pc ║
+ ║ textures.cpeg_pc/  +  archiver.exe  =  .pack/textures.cpeg_pc ║
+ ╟─────────────────────── Unpack Examples ───────────────────────╢
+ ║ items.vpp_pc  +  archiver.exe  =  .unpack/items.vpp_pc/.....  ║
+ ║ test.cpeg_pc  +  archiver.exe  =  .unpack/test.cpeg_pc/*.png  ║
+ ╟────────────────┴──────────────────────────────────────────────╢
+ ║ Help, feedback, bugreport: join Red Faction Community Discord ║
+ ║ https://discord.gg/factionfiles - see #rfg-modding channel    ║
+ ╚═══════════════════════════════════════════════════════════════╝
+
+Supported formats
+Unpack: {string.Join(" ", FormatDescriptors.UnpackExt)}
+Pack:   {string.Join(" ", FormatDescriptors.PackExt)}
+Decode: {string.Join(" ", FormatDescriptors.DecodeExt)}
+Encode: {string.Join(" ", FormatDescriptors.EncodeExt)}
+""";
+
     public static IEnumerable<HelpSectionDelegate> HackHelpLayout(bool runStandalone)
     {
         var layout = HelpBuilder.Default.GetLayout();
@@ -29,7 +63,7 @@ public static class ArchiverUtils
         return layout;
     }
 
-    public static void SetupLogs(ILoggingBuilder x)
+    public static void SetupLogs(ILoggingBuilder x, NLog.LogLevel consoleLogLevel)
     {
         x.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.None);
 
@@ -75,7 +109,7 @@ public static class ArchiverUtils
                 },
             };
         console.Layout = Layout.FromString("${date:format=HH\\:mm\\:ss} ${message}${onexception:${newline}${exception}}");
-        var rule1 = new LoggingRule("*", NLog.LogLevel.Debug, NLog.LogLevel.Off, new AsyncTargetWrapper(console, 10000, AsyncTargetWrapperOverflowAction.Discard));
+        var rule1 = new LoggingRule("*", consoleLogLevel, NLog.LogLevel.Off, new AsyncTargetWrapper(console, 10000, AsyncTargetWrapperOverflowAction.Discard));
 
         var file = new FileTarget("file");
         file.FileName = ".rfgm.archiver.log";
@@ -105,7 +139,7 @@ public static class ArchiverUtils
             var logPath = Path.Combine(Environment.CurrentDirectory, ".rfgm.archiver.log");
             log.LogTrace(e, "Command failed");
             log.LogCritical("Command failed!\n\t{message}\n\tCheck log for details:\n\t{logPath}", e.Message, logPath);
+            context.ExitCode = (int)ExitCode.UnhandledException;
         }
     }
-
 }

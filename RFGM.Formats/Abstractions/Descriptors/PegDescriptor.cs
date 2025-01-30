@@ -1,9 +1,4 @@
-using System.Collections.Immutable;
-using System.IO.Abstractions;
-using System.Text.RegularExpressions;
-using RFGM.Formats.Peg;
-
-namespace RFGM.Formats.Abstractions;
+namespace RFGM.Formats.Abstractions.Descriptors;
 
 /// <summary>
 /// texture containers: cpeg_pc+gpeg_pc and cvbm_pc+gvbm_pc

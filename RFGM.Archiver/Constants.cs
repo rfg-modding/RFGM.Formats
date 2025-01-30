@@ -1,4 +1,4 @@
-namespace RFGM.Formats;
+namespace RFGM.Archiver;
 
 public static class Constants
 {

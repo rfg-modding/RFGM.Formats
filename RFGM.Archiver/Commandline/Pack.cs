@@ -1,17 +1,11 @@
 using System.CommandLine;
-using System.CommandLine.Help;
 using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileSystemGlobbing;
 using RFGM.Archiver.Models;
-using RFGM.Archiver.Models.Messages;
-using RFGM.Formats;
-using RFGM.Formats.Abstractions;
-using RFGM.Formats.Peg;
 
-namespace RFGM.Archiver.Commands;
+namespace RFGM.Archiver.Commandline;
 
 public class Pack : Command
 {
@@ -86,7 +80,6 @@ NOTES:
             ? PackSettings.Default
             : new PackSettings(metadata, force);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
-        await archiver.Pack(input, output, parallel, settings, token);
-        return 0;
+        return (int) await archiver.CommandPack(input, output, parallel, settings, token);
     }
 }

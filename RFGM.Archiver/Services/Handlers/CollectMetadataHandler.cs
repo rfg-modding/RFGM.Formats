@@ -4,9 +4,9 @@ using RFGM.Formats;
 
 namespace RFGM.Archiver.Services.Handlers;
 
-public class BuildMetadataHandler() : HandlerBase<BuildMetadataMessage>
+public class CollectMetadataHandler(ArchiverState archiverState) : HandlerBase<CollectMetadataMessage>
 {
-    public override async Task<IEnumerable<IMessage>> Handle(BuildMetadataMessage message, CancellationToken token)
+    public override async Task<IEnumerable<IMessage>> Handle(CollectMetadataMessage message, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         var name = message.EntryInfo.Name;
@@ -19,7 +19,7 @@ public class BuildMetadataHandler() : HandlerBase<BuildMetadataMessage>
         //NOTE: entryInfo.Properties are updated from other tasks when descending into nested archives, etc.
         //Store them until last moment, serialize only when all work is done
         //But calculate hashes and release streams ASAP!
-        Archiver.Metadata.Add(new Metadata(name, path, format, isContainer, hash, length, message.EntryInfo.Properties));
+        archiverState.StoreMetadata(new Metadata(name, path, format, isContainer, hash, length, message.EntryInfo.Properties));
         return [];
     }
 }

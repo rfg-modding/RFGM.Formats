@@ -4,9 +4,9 @@ using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace RFGM.Archiver.Commands;
+namespace RFGM.Archiver.Commandline;
 
-public class Test : Command
+public class AppTest : Command
 {
     private readonly Argument<List<string>> inputArg = new("input", "test input"){
         Arity = ArgumentArity.OneOrMore
@@ -24,7 +24,7 @@ public class Test : Command
 
     public override string? Description => @"Run test logic for debugging";
 
-    public Test() : base(nameof(Test).ToLowerInvariant())
+    public AppTest() : base(nameof(AppTest).ToLowerInvariant())
     {
         IsHidden = true;
         AddArgument(inputArg);
@@ -37,7 +37,6 @@ public class Test : Command
         var input = context.ParseResult.GetValueForArgument(inputArg);
         var parallel = context.ParseResult.GetValueForOption(parallelArg);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
-        await archiver.Test(input, parallel, token);
-        return 0;
+        return (int) await archiver.CommandTest(input, parallel, token);
     }
 }

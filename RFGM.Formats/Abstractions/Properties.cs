@@ -1,5 +1,3 @@
-using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RFGM.Formats.Peg;
@@ -18,7 +16,7 @@ public record Properties
         var props = GetType()
             .GetProperties()
             .Select(x => new {x.Name, Value = x.GetValue(this) ?? string.Empty})
-            .OrderBy(x => x.Name)
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .Select(x => x.Value);
         return string.Join(",", props);
     }

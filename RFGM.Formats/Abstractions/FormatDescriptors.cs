@@ -1,13 +1,13 @@
 using System.Collections.Immutable;
-using System.IO.Abstractions;
+using RFGM.Formats.Abstractions.Descriptors;
 
 namespace RFGM.Formats.Abstractions;
 
 public static class FormatDescriptors
 {
-    public static IFormatDescriptor DetermineByName(string name) => AllDescriptors.FirstOrDefault(x => x.DecodeMatch(name)) ?? RegularFile;
+    public static IFormatDescriptor MatchForDecoding(string name) => AllDescriptors.FirstOrDefault(x => x.DecodeMatch(name)) ?? RegularFile;
 
-    public static IFormatDescriptor DetermineByFileSystem(IFileSystemInfo info) => AllDescriptors.FirstOrDefault(x => x.EncodeMatch(info)) ?? RegularFile;
+    public static IFormatDescriptor MatchForEncoding(string name) => AllDescriptors.FirstOrDefault(x => x.EncodeMatch(name)) ?? RegularFile;
 
     private static readonly IReadOnlyList<IFormatDescriptor> Instances = new List<IFormatDescriptor>
     {

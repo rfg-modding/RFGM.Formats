@@ -1,10 +1,6 @@
 using System.Collections.Immutable;
-using System.Globalization;
 using System.IO.Abstractions;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using RFGM.Formats.Peg.Models;
 
 namespace RFGM.Formats.Abstractions;
 
@@ -35,14 +31,14 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
         return DecodeMatchInternal(name);
     }
 
-    public bool EncodeMatch(IFileSystemInfo fileSystemInfo)
+    public bool EncodeMatch(string name)
     {
         if (!CanEncode)
         {
             return false;
         }
 
-        return EncodeMatchInternal(fileSystemInfo);
+        return EncodeMatchInternal(name);
     }
 
     public string GetDecodeName(EntryInfo data, bool writeProperties)
@@ -65,8 +61,9 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
         return data.Name;
     }
 
-    public EntryInfo FromFileSystem(IFileSystemInfo fileSystemInfo)
+    public EntryInfo ReadEntryForEncoding(IFileSystemInfo fileSystemInfo)
     {
+        // TODO is this right?
         if (!CanDecode)
         {
             throw new InvalidOperationException($"{Name}: Decode is not supported");
@@ -89,8 +86,8 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
     public abstract bool IsContainer { get; }
     protected abstract List<string> CanDecodeExt { get; }
     protected abstract List<string> CanEncodeExt { get; }
-    protected virtual bool DecodeMatchInternal(string name) => CanDecodeExtensions.Contains(FormatUtils.GetFullExtension(name));
-    protected virtual bool EncodeMatchInternal(IFileSystemInfo fileSystemInfo) => CanEncodeExtensions.Contains(FormatUtils.GetFullExtension(fileSystemInfo.Name));
+    protected virtual bool DecodeMatchInternal(string name) => CanDecodeExtensions.Contains(FormatUtils.GetLastExtension(name));
+    protected virtual bool EncodeMatchInternal(string name) => CanEncodeExtensions.Contains(FormatUtils.GetLastExtension(name));
 
     protected virtual EntryInfo FromFileSystemInternal(IFileSystemInfo fileSystemInfo)
     {
@@ -102,7 +99,8 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
 
         var name = match.Groups["nameNoExt"].Value;
         ArgumentNullException.ThrowIfNull(name);
-        var props = Properties.Deserialize(match.Groups["props"].Value);
+        var propsStr = match.Groups["props"].Value;
+        var props = Properties.Deserialize(propsStr);
         ArgumentNullException.ThrowIfNull(props);
         var originalExt = match.Groups["ext"].Value;
         var newExt = GetEncodeExt(originalExt);
@@ -151,6 +149,6 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
 
 
 
-    public static readonly Regex PropertyNameFormat = new(@"^(?<nameNoExt>.*?)\s*(?<props>{.*})?(?<ext>\..*)?$", RegexOptions.Compiled);
+    public static readonly Regex PropertyNameFormat = new(@"^(?<nameNoExt>.*?)\s*(?<props>{.*})?(?<ext>(?=\.)\.[^.{}]*?)?$", RegexOptions.Compiled);
 
 }

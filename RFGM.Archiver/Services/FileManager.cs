@@ -1,6 +1,5 @@
 using System.IO.Abstractions;
 using Microsoft.Extensions.Logging;
-using RFGM.Formats;
 
 namespace RFGM.Archiver.Services;
 

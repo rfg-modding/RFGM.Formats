@@ -1,5 +1,4 @@
 using System.IO.Abstractions;
-using Microsoft.Extensions.Logging;
 using RFGM.Archiver.Models;
 using RFGM.Archiver.Models.Messages;
 using RFGM.Formats.Abstractions;
@@ -7,32 +6,28 @@ using RFGM.Formats.Streams;
 
 namespace RFGM.Archiver.Services.Handlers;
 
-public class UnpackFileHandler(IFileSystem fileSystem, ILogger<UnpackFileHandler> log) : HandlerBase<UnpackFileMessage>
+public class StartUnpackHandler(IFileSystem fileSystem, ArchiverState archiverState) : HandlerBase<StartUnpackMessage>
 {
-    public override Task<IEnumerable<IMessage>> Handle(UnpackFileMessage message, CancellationToken token)
+    public override Task<IEnumerable<IMessage>> Handle(StartUnpackMessage message, CancellationToken token)
     {
         var destination = fileSystem.Path.IsPathFullyQualified(message.Destination)
             ? fileSystem.DirectoryInfo.New(message.Destination)
             : fileSystem.DirectoryInfo.New(fileSystem.Path.Combine(message.FileInfo.Directory!.FullName, message.Destination));
 
-        var descriptor = FormatDescriptors.DetermineByName(message.FileInfo.Name);
-        if (!descriptor.IsContainer)
-        {
-            log.LogWarning("Not a container: [{name}]", message.FileInfo.Name);
-            return Task.FromResult(Enumerable.Empty<IMessage>());
-        }
-        var entryInfo = new EntryInfo(message.FileInfo.Name, descriptor, new Properties());
+        var descriptor = FormatDescriptors.MatchForDecoding(message.FileInfo.Name);
+        var (nameWithoutProps, _, properties) = FormatDescriptors.RegularFile.ReadEntryForEncoding(message.FileInfo);
+        var entryInfo = new EntryInfo(nameWithoutProps, descriptor, properties);
         var secondaryFile = LocateSecondaryIfPrimary(message.FileInfo);
-        Archiver.Destinations.Add(destination.FullName);
+        archiverState.RememberDestination(destination.FullName);
         var result = new List<IMessage>();
         result.Add(new UnpackMessage(entryInfo, message.FileInfo.OpenRead(), secondaryFile?.OpenRead(), Breadcrumbs.Init(), destination, message.Settings));
         if (message.Settings.Metadata)
         {
-            result.Add(new BuildMetadataMessage(entryInfo, Breadcrumbs.Init(), message.FileInfo.OpenRead()));
+            result.Add(new CollectMetadataMessage(entryInfo, Breadcrumbs.Init(), message.FileInfo.OpenRead()));
             if (secondaryFile is not null)
             {
                 var secondaryEntryInfo = new EntryInfo(secondaryFile.Name, descriptor, new Properties());
-                result.Add(new BuildMetadataMessage(secondaryEntryInfo, Breadcrumbs.Init(), secondaryFile.OpenRead()));
+                result.Add(new CollectMetadataMessage(secondaryEntryInfo, Breadcrumbs.Init(), secondaryFile.OpenRead()));
             }
         }
         return Task.FromResult<IEnumerable<IMessage>>(result);
@@ -43,13 +38,13 @@ public class UnpackFileHandler(IFileSystem fileSystem, ILogger<UnpackFileHandler
     /// </summary>
     private IFileInfo? LocateSecondaryIfPrimary(IFileInfo file)
     {
-        var nameWithoutNumber = FormatDescriptors.RegularFile.FromFileSystem(file).Name;
+        var nameWithoutProps = FormatDescriptors.RegularFile.ReadEntryForEncoding(file).Name;
         var byName = file.Directory!.EnumerateFiles()
-            .Select(x => new {FormatDescriptors.RegularFile.FromFileSystem(x).Name, x});
-        var cpu = PairedFiles.GetCpuFileName(nameWithoutNumber);
-        var gpu = PairedFiles.GetGpuFileName(nameWithoutNumber);
+            .Select(x => new {FormatDescriptors.RegularFile.ReadEntryForEncoding(x).Name, x});
+        var cpu = PairedFiles.GetCpuFileName(nameWithoutProps);
+        var gpu = PairedFiles.GetGpuFileName(nameWithoutProps);
         var gpuFile = byName.FirstOrDefault(x => x.Name == gpu)?.x;
-        if (nameWithoutNumber == cpu && gpuFile != null)
+        if (nameWithoutProps == cpu && gpuFile != null)
         {
             return gpuFile;
         }

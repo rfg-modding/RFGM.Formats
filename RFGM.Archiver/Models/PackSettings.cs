@@ -1,7 +1,4 @@
 using System.Text;
-using Microsoft.Extensions.FileSystemGlobbing;
-using RFGM.Formats;
-using RFGM.Formats.Peg;
 
 namespace RFGM.Archiver.Models;
 

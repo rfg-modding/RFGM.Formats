@@ -1,18 +1,14 @@
 using System.CommandLine;
-using System.CommandLine.Help;
 using System.CommandLine.Hosting;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileSystemGlobbing;
 using RFGM.Archiver.Models;
-using RFGM.Archiver.Models.Messages;
-using RFGM.Archiver.Services.Handlers;
 using RFGM.Formats;
-using RFGM.Formats.Abstractions;
 using RFGM.Formats.Peg;
 
-namespace RFGM.Archiver.Commands;
+namespace RFGM.Archiver.Commandline;
 
 public class Unpack : Command
 {
@@ -32,7 +28,7 @@ public class Unpack : Command
             "-d",
             "--default"
         ],
-        $"Use default unpack settings [ -r ]. Other flags will be ignored!");
+        $"Use default unpack settings [ -r -l ]. Other flags will be ignored!");
 
     private readonly Option<string> filterArg = new([
             "--filter",
@@ -48,6 +44,12 @@ public class Unpack : Command
             "--xmlFormat"
         ],
         "Format xml-like files (.xtbl .dtdox .gtdox) for readability. Some formatted files will crash game if packed!");
+
+    private readonly Option<bool> localizationArg = new([
+            "-l",
+            "--localization"
+        ],
+        "Decode localization files (.rfglocatext) into editable xml");
 
     private readonly Option<bool> recursiveArg = new([
             "-r",
@@ -119,6 +121,7 @@ NOTES:
         AddOption(defaultArg);
         AddOption(filterArg);
         AddOption(forceArg);
+        AddOption(localizationArg);
         AddOption(metadataArg);
         AddOption(noPropsArg);
         AddOption(optimizeArg);
@@ -146,12 +149,12 @@ NOTES:
         var parallel = context.ParseResult.GetValueForOption(parallelArg);
         var optimize = context.ParseResult.GetValueForOption(optimizeArg);
         var skip = context.ParseResult.GetValueForOption(skipArg);
+        var localization = context.ParseResult.GetValueForOption(localizationArg);
         var matcher = new Matcher(StringComparison.OrdinalIgnoreCase).AddInclude(filter);
         var settings = isDefault
             ? UnpackSettings.Default
-            : new UnpackSettings(matcher, texture, optimize, skip, !noProps, xmlFormat, recursive, metadata, force);
+            : new UnpackSettings(matcher, texture, optimize, skip, !noProps, xmlFormat, recursive, metadata, force, localization);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
-        await archiver.Unpack(input, output, parallel, settings, token);
-        return 0;
+        return (int) await archiver.CommandUnpack(input, output, parallel, settings, token);
     }
 }
