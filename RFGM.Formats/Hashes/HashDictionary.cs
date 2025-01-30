@@ -9,7 +9,7 @@ public class HashDictionary
     private static Dictionary<uint, string> _stringDictionary2 = new();
     private static object _initLock = new();
 
-    public static bool Initialized = false;
+    public static bool Initialized;
 
     public static void Initialize()
     {
@@ -18,10 +18,10 @@ public class HashDictionary
             if (Initialized)
                 return;
 
-            foreach (string str in _sourceStrings)
+            foreach (var str in _sourceStrings)
             {
                 _stringDictionary0[Hash.HashVolitionCRC(str, 0)] = str;
-                _stringDictionary1[Hash.HashVolitionCRCAlt(str, 1)] = str;
+                _stringDictionary1[Hash.HashVolitionCRCAlt(str)] = str;
                 _stringDictionary2[Hash.HashVolition(str)] = str;
             }
             
@@ -34,7 +34,7 @@ public class HashDictionary
         if (!Initialized)
             Initialize();
 
-        if (_stringDictionary0.TryGetValue(hash, out string? result))
+        if (_stringDictionary0.TryGetValue(hash, out var result))
             return result;
         if (_stringDictionary1.TryGetValue(hash, out result))
             return result;

@@ -24,8 +24,8 @@ public class RfgMaterial
 
     public void Read(Stream stream)
     {
-        long materialDataStart = stream.Position;
-        uint materialDataSize = stream.ReadUInt32();
+        var materialDataStart = stream.Position;
+        var materialDataSize = stream.ReadUInt32();
         
         ShaderHandle = stream.ReadUInt32();
         NameChecksum = stream.ReadUInt32();
@@ -37,20 +37,20 @@ public class RfgMaterial
         ConstantNameChecksumsOffset = stream.ReadUInt32();
         ConstantBlockOffset = stream.ReadUInt32();
 
-        for (int i = 0; i < NumTextures; i++)
+        for (var i = 0; i < NumTextures; i++)
         {
             TextureDesc textureDesc = new();
             textureDesc.Read(stream);
             Textures.Add(textureDesc);
         }
 
-        for (int i = 0; i < NumConstants; i++)
+        for (var i = 0; i < NumConstants; i++)
         {
             ConstantNameChecksums.Add(stream.ReadUInt32());
         }
 
         stream.AlignRead(16);
-        for (int i = 0; i < MaxConstants; i++)
+        for (var i = 0; i < MaxConstants; i++)
         {
             MaterialConstant constant = new();
             constant.Read(stream);

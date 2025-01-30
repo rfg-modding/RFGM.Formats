@@ -22,7 +22,7 @@ public struct DestroyableInstanceData
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
         
         ObjectsOffset = stream.ReadUInt32();
@@ -32,8 +32,8 @@ public struct DestroyableInstanceData
         BufferOffset = stream.ReadUInt32();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for DestroyableInstanceData. Expected {SizeInFile} bytes, read {bytesRead} bytes");

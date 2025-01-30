@@ -74,7 +74,7 @@ public class SeekableInflaterStream(Stream underlyingStream, long inflatedLength
         var intLength = (int) length;
         var chunks = intLength / chunkSize;
         var remainder = intLength % chunkSize;
-        for (int i = 0; i < chunks; i++)
+        for (var i = 0; i < chunks; i++)
         {
             var read = Inflater.Read(buf, 0, chunkSize);
             if (read != chunkSize)

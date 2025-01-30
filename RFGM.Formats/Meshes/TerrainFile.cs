@@ -56,7 +56,7 @@ public class TerrainFile
         cpuFile.AlignRead(4);
         
         StitchPieceNames = cpuFile.ReadSizedStringList(Header.StitchPieceNamesSize);
-        for (int i = 0; i < Header.NumStitchPieces; i++)
+        for (var i = 0; i < Header.NumStitchPieces; i++)
         {
             TerrainStitchInfo stitchInfo = new();
             stitchInfo.Read(cpuFile);
@@ -70,7 +70,7 @@ public class TerrainFile
         Data = new TerrainData();
         Data.Read(cpuFile);
         
-        uint terrainMaterialsNameListSize = cpuFile.ReadUInt32();
+        var terrainMaterialsNameListSize = cpuFile.ReadUInt32();
         TerrainMaterialNames = cpuFile.ReadSizedStringList(terrainMaterialsNameListSize);
         cpuFile.AlignRead(16);
         
@@ -84,7 +84,7 @@ public class TerrainFile
         
         //TODO: Figure out if there's any important data in the skips
         cpuFile.Skip(4);
-        uint numMaterials = cpuFile.ReadUInt32();
+        var numMaterials = cpuFile.ReadUInt32();
         cpuFile.Skip(28);
         cpuFile.Skip(numMaterials * 4);
         cpuFile.AlignRead(16);
@@ -97,7 +97,7 @@ public class TerrainFile
             cpuFile.AlignRead(16);
         }
 
-        for (int i = 0; i < numMaterials; i++)
+        for (var i = 0; i < numMaterials; i++)
         {
             RfgMaterial material = new();
             material.Read(cpuFile);
@@ -118,7 +118,7 @@ public class TerrainFile
         {
             cpuFile.Skip(8);
             cpuFile.Skip(Data.NumSidemapMaterials * 4 * 2);
-            for (int i = 0; i < Data.NumSidemapMaterials; i++)
+            for (var i = 0; i < Data.NumSidemapMaterials; i++)
             {
                 SidemapMaterial material = new();
                 material.Read(cpuFile);
@@ -128,8 +128,8 @@ public class TerrainFile
         
         //Appears to be navmesh/pathfinding data
         cpuFile.AlignRead(4);
-        uint maybeNumNavmeshes = cpuFile.ReadUInt32();
-        uint maybeNavmeshSize = cpuFile.ReadUInt32();
+        var maybeNumNavmeshes = cpuFile.ReadUInt32();
+        var maybeNavmeshSize = cpuFile.ReadUInt32();
         cpuFile.Skip(maybeNavmeshSize - 4);
         cpuFile.AlignRead(16);
 
@@ -159,7 +159,7 @@ public class TerrainFile
         cpuFile.AlignRead(16);
         cpuFile.Skip(Data.LayerMap.DataSize);
         cpuFile.Skip(Data.LayerMap.NumMaterials * 4);
-        for (int i = 0; i < Data.LayerMap.NumMaterials; i++)
+        for (var i = 0; i < Data.LayerMap.NumMaterials; i++)
         {
             LayerMapMaterialNames.Add(cpuFile.ReadAsciiNullTerminatedString());
         }
@@ -169,21 +169,21 @@ public class TerrainFile
         if (Data.NumUndergrowthLayers > 0)
         {
             //Undergrowth layer data
-            for (int i = 0; i < Data.NumUndergrowthLayers; i++)
+            for (var i = 0; i < Data.NumUndergrowthLayers; i++)
             {
                 UndergrowthLayerData layerData = new();
                 layerData.Read(cpuFile);
                 UndergrowthLayers.Add(layerData);
             }
 
-            int totalModels = 0;
-            foreach (UndergrowthLayerData layer in UndergrowthLayers)
+            var totalModels = 0;
+            foreach (var layer in UndergrowthLayers)
             {
                 totalModels += layer.NumModels;
             }
             
             cpuFile.Skip(totalModels * 16);
-            for (int i = 0; i < totalModels; i++)
+            for (var i = 0; i < totalModels; i++)
             {
                 LayerMapMaterialNames2.Add(cpuFile.ReadAsciiNullTerminatedString());
                 cpuFile.AlignRead(4);
@@ -192,7 +192,7 @@ public class TerrainFile
             cpuFile.Skip(16384); //TODO: Figure out what this data is
             
             //Undergrowth cell data
-            for (int i = 0; i < Data.NumUndergrowthCellLayerDatas; i++)
+            for (var i = 0; i < Data.NumUndergrowthCellLayerDatas; i++)
             {
                 UndergrowthCellLayerData cellLayerData = new();
                 cellLayerData.Read(cpuFile);
@@ -201,19 +201,19 @@ public class TerrainFile
             cpuFile.AlignRead(4);
             
             //More undergrowth data
-            for (int i = 0; i < Data.NumUndergrowthCellLayerDatas; i++)
+            for (var i = 0; i < Data.NumUndergrowthCellLayerDatas; i++)
             {
                 SingleUndergrowthCellLayerData cellLayerData = new();
                 cellLayerData.Read(cpuFile);
                 SingleUndergrowthCellData.Add(cellLayerData);
             }
             
-            int numSingleUndergrowths = 0;
-            foreach (SingleUndergrowthCellLayerData cell in SingleUndergrowthCellData)
+            var numSingleUndergrowths = 0;
+            foreach (var cell in SingleUndergrowthCellData)
             {
                 numSingleUndergrowths += (int)cell.NumSingleUndergrowth;
             }
-            for (int i = 0; i < numSingleUndergrowths; i++)
+            for (var i = 0; i < numSingleUndergrowths; i++)
             {
                 SingleUndergrowthData data = new();
                 data.Read(cpuFile);
@@ -230,7 +230,7 @@ public class TerrainFile
         }
         cpuFile.AlignRead(4);
         
-        uint minimapMaterialNamesSize = cpuFile.ReadUInt32();
+        var minimapMaterialNamesSize = cpuFile.ReadUInt32();
         MinimapMaterialNames = cpuFile.ReadSizedStringList(minimapMaterialNamesSize);
         cpuFile.AlignRead(16);
 
@@ -238,7 +238,7 @@ public class TerrainFile
         cpuFile.Skip(432);
         
         //Read mesh info
-        for (int i = 0; i < 9; i++)
+        for (var i = 0; i < 9; i++)
         {
             Meshes[i] = new MeshConfig();
             Meshes[i].Read(cpuFile);
@@ -249,13 +249,13 @@ public class TerrainFile
 
     private bool SkipHavokData(Stream stream)
     {
-        long startPos = stream.Position;
-        uint maybeSignature = stream.ReadUInt32();
+        var startPos = stream.Position;
+        var maybeSignature = stream.ReadUInt32();
         if (maybeSignature != HavokSignature)
             return false;
         
         stream.Skip(4);
-        uint size = stream.ReadUInt32();
+        var size = stream.ReadUInt32();
         stream.Seek(startPos + size, SeekOrigin.Begin);
         return true;
     }
@@ -273,18 +273,18 @@ public class TerrainFile
 
         //Calculate mesh data offset in gpu file
         long meshStartPos = 0;
-        for (int i = 0; i < index; i++)
+        for (var i = 0; i < index; i++)
         {
-            MeshConfig mesh = Meshes[i];
+            var mesh = Meshes[i];
             meshStartPos += mesh.VerticesOffset + (mesh.NumVertices * mesh.VertexStride0);
             meshStartPos += 4; //Skip end CRC
         }
 
-        MeshConfig config = Meshes[index];
+        var config = Meshes[index];
         
         //Sanity check. Make sure CRCs match. If not something probably went wrong when reading/writing from packfile
         gpuFile.Seek(meshStartPos, SeekOrigin.Begin);
-        uint startCRC = gpuFile.ReadUInt32();
+        var startCRC = gpuFile.ReadUInt32();
         if (startCRC != config.VerificationHash)
         {
             throw new Exception($"Start CRC mismatch in gterrain_pc file {Name}");
@@ -292,18 +292,18 @@ public class TerrainFile
         
         //Read index buffer
         gpuFile.Seek(meshStartPos + config.IndicesOffset, SeekOrigin.Begin);
-        uint indexBufferSize = config.NumIndices * config.IndexSize;
-        byte[] indexBuffer = new byte[indexBufferSize];
+        var indexBufferSize = config.NumIndices * config.IndexSize;
+        var indexBuffer = new byte[indexBufferSize];
         gpuFile.ReadExactly(indexBuffer);
 
         //Read vertex buffer
         gpuFile.Seek(meshStartPos + config.VerticesOffset, SeekOrigin.Begin);
-        uint vertexBufferSize = config.NumVertices * config.VertexStride0;
-        byte[] vertexBuffer = new byte[vertexBufferSize];
+        var vertexBufferSize = config.NumVertices * config.VertexStride0;
+        var vertexBuffer = new byte[vertexBufferSize];
         gpuFile.ReadExactly(vertexBuffer);
         
         //Sanity check. CRC at the end of the mesh data should match the start
-        uint endCRC = gpuFile.ReadUInt32();
+        var endCRC = gpuFile.ReadUInt32();
         if (startCRC != endCRC)
         {
             throw new Exception($"End CRC mismatch in gterrain_pc file {Name}");

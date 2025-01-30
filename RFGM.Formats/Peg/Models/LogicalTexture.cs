@@ -23,6 +23,4 @@ public record LogicalTexture(
     public int TotalSize => (int)Data.Length + PadSize;
     public int NameOffset { get; internal set; } = NameOffset;
     public byte[] GetNameCString() => Encoding.ASCII.GetBytes(Name + "\0");
-    public string UnpackName(ImageFormat format) => $"{Order:D5} {Name} {Format} {Flags} {MipLevels} {Size} {Source}.{format}";
-
 }

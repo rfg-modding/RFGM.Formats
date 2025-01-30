@@ -6,7 +6,7 @@ public static class MathExtensions
 {
     public static Matrix3x3 ToMatrix3x3(this Matrix4x4 m)
     {
-        Matrix3x3 mat3x3 = new Matrix3x3();
+        var mat3x3 = new Matrix3x3();
         mat3x3.M11 = m.M11;
         mat3x3.M12 = m.M12;
         mat3x3.M13 = m.M13;

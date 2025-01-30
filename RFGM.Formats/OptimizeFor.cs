@@ -1,3 +1,3 @@
 namespace RFGM.Formats;
 
-public enum OptimizeFor {Speed, Memory}
+public enum OptimizeFor {speed, memory}

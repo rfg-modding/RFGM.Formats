@@ -6,7 +6,7 @@ namespace RFGM.Formats.Meshes;
 //RFGR static mesh format. Extension: csmesh_pc|gsmesh_pc
 public class StaticMesh
 {
-    public StaticMeshHeader Header = new();
+    public StaticMeshHeader Header;
     public MeshConfig Config = new();
     public List<uint> MaterialOffsets = new();
     public List<RfgMaterial> Materials = new();
@@ -14,7 +14,7 @@ public class StaticMesh
     public List<int> LodSubmeshIds = new();
     public List<MeshTag> Tags = new();
 
-    public bool LoadedCpuFile { get; private set; } = false;
+    public bool LoadedCpuFile { get; private set; }
     
     public struct StaticMeshHeader
     {
@@ -64,17 +64,17 @@ public class StaticMesh
         cpuFile.Seek(Header.Shared.MaterialMapOffset, SeekOrigin.Begin);
         
         //TODO: Determine if any other important data is between this and the material offsets. The null bytes might just be padding.
-        uint materialsOffsetRelative = cpuFile.ReadUInt32();
-        uint numMaterials = cpuFile.ReadUInt32();
+        var materialsOffsetRelative = cpuFile.ReadUInt32();
+        var numMaterials = cpuFile.ReadUInt32();
         cpuFile.Seek(Header.Shared.MaterialsOffset, SeekOrigin.Begin);
 
-        for (int i = 0; i < numMaterials; i++)
+        for (var i = 0; i < numMaterials; i++)
         {
             MaterialOffsets.Add(cpuFile.ReadUInt32());
             cpuFile.Skip(4);
         }
 
-        for (int i = 0; i < numMaterials; i++)
+        for (var i = 0; i < numMaterials; i++)
         {
             //TODO: Make sure we're not skipping any important data by doing this
             cpuFile.Seek(MaterialOffsets[i], SeekOrigin.Begin);
@@ -91,9 +91,9 @@ public class StaticMesh
         }
 
         cpuFile.Seek(Header.Shared.TextureNamesOffset, SeekOrigin.Begin);
-        foreach (RfgMaterial material in Materials)
+        foreach (var material in Materials)
         {
-            foreach (TextureDesc texture in material.Textures)
+            foreach (var texture in material.Textures)
             {
                 cpuFile.Seek(Header.Shared.TextureNamesOffset + texture.NameOffset, SeekOrigin.Begin);
                 TextureNames.Add(cpuFile.ReadAsciiNullTerminatedString());
@@ -101,7 +101,7 @@ public class StaticMesh
         }
 
         cpuFile.Seek(Header.LodSubmeshIdOffset, SeekOrigin.Begin);
-        for (int i = 0; i < Header.NumLods; i++)
+        for (var i = 0; i < Header.NumLods; i++)
         {
             LodSubmeshIds.Add(cpuFile.ReadInt32());
         }
@@ -112,7 +112,7 @@ public class StaticMesh
         }
         
         Header.NumTags = cpuFile.ReadUInt32();
-        for (int i = 0; i < Header.NumTags; i++)
+        for (var i = 0; i < Header.NumTags; i++)
         {
             MeshTag tag = new();
             tag.Read(cpuFile);
@@ -131,13 +131,13 @@ public class StaticMesh
         
         //Read index buffer
         gpuFile.Seek(Config.IndicesOffset, SeekOrigin.Begin);
-        uint indicesSizeInBytes = Config.NumIndices * Config.IndexSize;
-        byte[] indices = gpuFile.ReadBytes((int)indicesSizeInBytes);
+        var indicesSizeInBytes = Config.NumIndices * Config.IndexSize;
+        var indices = gpuFile.ReadBytes((int)indicesSizeInBytes);
         
         //Read vertex buffer
         gpuFile.Seek(Config.VerticesOffset, SeekOrigin.Begin);
-        uint verticesSize = Config.NumVertices * Config.VertexStride0;
-        byte[] vertices = gpuFile.ReadBytes((int)verticesSize);
+        var verticesSize = Config.NumVertices * Config.VertexStride0;
+        var vertices = gpuFile.ReadBytes((int)verticesSize);
 
         return new MeshInstanceData(Config, vertices, indices);
     }

@@ -22,25 +22,25 @@ public class AsmContainer
     {
         error = string.Empty;
 
-        ushort nameLength = stream.ReadUInt16();
+        var nameLength = stream.ReadUInt16();
         Name = stream.ReadAsciiString(nameLength);
         Type = (ContainerType)stream.ReadUInt8();
         Flags = (ContainerFlags)stream.ReadUInt16();
-        ushort numPrimitives = stream.ReadUInt16();
+        var numPrimitives = stream.ReadUInt16();
         DataOffset = stream.ReadUInt32();
-        uint sizeCount = stream.ReadUInt32();
+        var sizeCount = stream.ReadUInt32();
         CompressedSize = stream.ReadUInt32();
 
         List<int> primitiveSizes = new();
-        for (int i = 0; i < sizeCount; i++)
+        for (var i = 0; i < sizeCount; i++)
         {
             primitiveSizes.Add(stream.ReadInt32());
         }
 
-        for (int i = 0; i < numPrimitives; i++)
+        for (var i = 0; i < numPrimitives; i++)
         {
             AsmPrimitive primitive = new();
-            if (!primitive.Read(stream, out string primitiveError))
+            if (!primitive.Read(stream, out var primitiveError))
             {
                 error = $"Failed to read .asm_pc file primitive '{Name}'.{Environment.NewLine}- {primitiveError}";
             }
@@ -49,9 +49,9 @@ public class AsmContainer
         }
 
         //Make sure sizeCount matches the number of sizes on the actual primitives
-        int calculatedSizeCount = 0;
+        var calculatedSizeCount = 0;
         List<int> calculatedSizes = new();
-        foreach (AsmPrimitive primitive in Primitives)
+        foreach (var primitive in Primitives)
         {
             //Calculate the number of sizes to make sure everything matches up. HeaderSize & DataSize correspond to the cpu file and gpu file (e.g. .cpeg_pc and .gpeg_pc).
             //Some formats only can consist of only a cpu file (e.g. .cefct_pc). In that case DataSize will be 0 and it's not counted.
@@ -69,8 +69,8 @@ public class AsmContainer
 
         if (Flags.HasFlag(ContainerFlags.HasSizeList) && calculatedSizeCount != primitiveSizes.Count)
         {
-            int firstDifferentIndex = -1;
-            for (int i = 0; i < System.Math.Min(primitiveSizes.Count, calculatedSizes.Count); i++)
+            var firstDifferentIndex = -1;
+            for (var i = 0; i < System.Math.Min(primitiveSizes.Count, calculatedSizes.Count); i++)
             {
                 if (primitiveSizes[i] != calculatedSizes[i])
                 {
@@ -79,7 +79,7 @@ public class AsmContainer
                 }
             }
 
-            bool asmFileHasExtraSizes = primitiveSizes.Count > calculatedSizes.Count && firstDifferentIndex == -1;
+            var asmFileHasExtraSizes = primitiveSizes.Count > calculatedSizes.Count && firstDifferentIndex == -1;
             if (!asmFileHasExtraSizes) //Handle modded asm_pc files that mistakenly have extra sizes. E.g. 15.vpp_pc/15.asm_pc in the current version of Terraform patch at the time of writing. Safe to ignore in that case.
             {
                 error = $"Primitive size count mismatch. Expected {primitiveSizes.Count}, found {calculatedSizeCount}.";
@@ -107,7 +107,7 @@ public class AsmContainer
         List<int> primitiveSizes = new();
         if (Flags.HasFlag(ContainerFlags.HasSizeList))
         {
-            foreach (AsmPrimitive primitive in Primitives)
+            foreach (var primitive in Primitives)
             {
                 if (primitive.HeaderSize != 0)
                     primitiveSizes.Add(primitive.HeaderSize);
@@ -125,14 +125,14 @@ public class AsmContainer
         stream.WriteUInt32((uint)primitiveSizes.Count);
         stream.WriteUInt32(CompressedSize);
 
-        foreach (int size in primitiveSizes)
+        foreach (var size in primitiveSizes)
         {
             stream.WriteInt32(size);
         }
 
-        foreach (AsmPrimitive primitive in Primitives)
+        foreach (var primitive in Primitives)
         {
-            if (!primitive.Write(stream, out string primitiveError))
+            if (!primitive.Write(stream, out var primitiveError))
             {
                 error = $"Error writing .asm_pc file primitive '{primitive.Name}'.{Environment.NewLine} - {primitiveError}";
                 return false;

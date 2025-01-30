@@ -23,8 +23,11 @@ public class ProgressLogger
         this.reportStep = reportStep;
         this.reportTime = reportTime ?? TimeSpan.FromSeconds(5);
 
-        log.LogInformation("{message}: {progress:0%}", message, 0);
-        this.lastReportedAt = DateTime.UtcNow;
+        if (total == 0)
+        {
+            log.LogWarning("{message}: empty", message);
+        }
+        lastReportedAt = DateTime.UtcNow;
     }
 
     public void Tick()
@@ -37,7 +40,7 @@ public class ProgressLogger
         var reportByCompletion = current == total;
         if ( reportByCompletion || (reportByProgress && reportByTime) )
         {
-            log.LogInformation("{message}: {progress:0%}", message, newProgress);
+            log.LogDebug("{message}: {progress:0%}", message, newProgress);
             lastReported = newProgress;
             lastReportedAt = now;
         }

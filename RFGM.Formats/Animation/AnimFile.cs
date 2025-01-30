@@ -24,7 +24,7 @@ public class AnimFile(string name)
     public void Read(Stream stream)
     {
 #if DEBUG
-        long headerStartPos = stream.Position;        
+        var headerStartPos = stream.Position;        
 #endif
         
         Signature = stream.ReadUInt32();
@@ -41,8 +41,8 @@ public class AnimFile(string name)
         RootControllerBoneOffset = stream.ReadInt32();
         
 #if DEBUG
-        long headerEndPos = stream.Position;
-        long headerBytesRead = headerEndPos - headerStartPos;
+        var headerEndPos = stream.Position;
+        var headerBytesRead = headerEndPos - headerStartPos;
         if (headerBytesRead != 48)
         {
             throw new Exception($"Invalid size for AnimFile header. Expected {48} bytes, read {headerBytesRead} bytes");

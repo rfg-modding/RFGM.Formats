@@ -23,7 +23,7 @@ public class TracingStream(Stream x, string name):Stream
     public override int ReadByte()
     {
         var oneByteArray = new byte[1];
-        int r = Read(oneByteArray, 0, 1);
+        var r = Read(oneByteArray, 0, 1);
         return r == 0 ? -1 : oneByteArray[0];
     }
 

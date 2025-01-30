@@ -42,7 +42,7 @@ public class RfgZoneFile
     
     public ZoneHeader Header;
 
-    public bool HasRelationData = false;
+    public bool HasRelationData;
 
     //public RelationData RelationData;
     public List<RfgZoneObject> Objects = new();
@@ -87,10 +87,10 @@ public class RfgZoneFile
                 stream.Skip(RelationDataSize);
             }
 
-            for (int i = 0; i < Header.NumObjects; i++)
+            for (var i = 0; i < Header.NumObjects; i++)
             {
                 RfgZoneObject obj = new();
-                if (!obj.Load(stream, out string objectError))
+                if (!obj.Load(stream, out var objectError))
                 {
                     error = $"Failed to load object {i}. Error:{Environment.NewLine}{objectError}";
                     return false;

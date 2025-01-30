@@ -17,7 +17,7 @@ public struct UndergrowthLayerData
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         NumModels = stream.ReadInt32();
@@ -29,8 +29,8 @@ public struct UndergrowthLayerData
         RandomSeed = stream.ReadInt32();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for UndergrowthLayerData. Expected {SizeInFile} bytes, read {bytesRead} bytes");

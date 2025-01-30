@@ -2,9 +2,11 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFGM.Formats", "RFGM.Formats\RFGM.Formats.csproj", "{C8F3DBCF-D90B-4D37-BBA9-13E5947A5A0E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DirectXTexConverterTestApp", "DirectXTexConverterTestApp\DirectXTexConverterTestApp.csproj", "{547F72F7-A082-4F7F-B11E-44870B0C605D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFGM.Archiver", "RFGM.Archiver\RFGM.Archiver.csproj", "{DEA2C253-C865-4780-B4C9-193303602EB5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{A7EB62FC-06D6-4386-826B-9A2D1F2AC7A1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RFGM.Archiver.Tests", "tests\RFGM.Archiver.Tests\RFGM.Archiver.Tests.csproj", "{1119E3B8-E316-43FB-9667-124A2C32C502}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,13 +18,16 @@ Global
 		{C8F3DBCF-D90B-4D37-BBA9-13E5947A5A0E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8F3DBCF-D90B-4D37-BBA9-13E5947A5A0E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8F3DBCF-D90B-4D37-BBA9-13E5947A5A0E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{547F72F7-A082-4F7F-B11E-44870B0C605D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{547F72F7-A082-4F7F-B11E-44870B0C605D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{547F72F7-A082-4F7F-B11E-44870B0C605D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{547F72F7-A082-4F7F-B11E-44870B0C605D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DEA2C253-C865-4780-B4C9-193303602EB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DEA2C253-C865-4780-B4C9-193303602EB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DEA2C253-C865-4780-B4C9-193303602EB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DEA2C253-C865-4780-B4C9-193303602EB5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1119E3B8-E316-43FB-9667-124A2C32C502}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1119E3B8-E316-43FB-9667-124A2C32C502}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1119E3B8-E316-43FB-9667-124A2C32C502}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1119E3B8-E316-43FB-9667-124A2C32C502}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1119E3B8-E316-43FB-9667-124A2C32C502} = {A7EB62FC-06D6-4386-826B-9A2D1F2AC7A1}
 	EndGlobalSection
 EndGlobal

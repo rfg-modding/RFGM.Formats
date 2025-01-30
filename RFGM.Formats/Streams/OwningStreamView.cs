@@ -18,7 +18,7 @@ public sealed class OwningStreamView(Stream stream, long viewStart, long viewLen
 
     public override long Length { get; } = viewLength;
 
-    public override long Position { get; set; } = 0;
+    public override long Position { get; set; }
 
     private Stream Stream { get; } = stream;
 

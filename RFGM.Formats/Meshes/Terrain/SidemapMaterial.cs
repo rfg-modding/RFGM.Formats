@@ -10,7 +10,7 @@ public class SidemapMaterial
 
     public void Read(Stream stream)
     {
-        uint materialNamesSize = stream.ReadUInt32();
+        var materialNamesSize = stream.ReadUInt32();
         MaterialNames = stream.ReadSizedStringList(materialNamesSize);
         stream.AlignRead(16);
         Material.Read(stream);

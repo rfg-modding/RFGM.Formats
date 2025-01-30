@@ -118,25 +118,6 @@ public sealed class VppWriter(LogicalArchive logicalArchive)
         }
 
         return ms.ToArray();
-        /*
-    - id: name_offset
-      type: u4
-      doc: Entry name byte offset inside entry names block
-    - size: 4
-    - id: data_offset
-      type: u4
-      doc: Entry data byte offset inside entry data block
-    - id: name_hash
-      size: 4
-      doc: Entry name CRC32 hash
-    - id: len_data
-      type: u4
-      doc: Entry data size in bytes
-- id: len_compressed_data
-type: u4
-doc: Compressed entry data size in bytes. If file is not compressed, should be 0xFFFFFFFF
-- size: 4
-        */
     }
 
     public async Task<byte[]> GetEntryNames(CancellationToken token)
@@ -166,7 +147,7 @@ doc: Compressed entry data size in bytes. If file is not compressed, should be 0
         await BinUtils.Write(ms, headerMagic, token);
         await BinUtils.Write(ms, headerVersion, token);
         await BinUtils.WriteString(ms, "            Packed           with         SyncFaction            ", 65, token);
-        await BinUtils.WriteString(ms, $"           code by           rast         specs  by         moneyl       parsed with      kaitai.io     special thanks       Camo                                          Read The         Martian     Chronicles from  Ray Bradbury.   I liked them.         ", 256, token);
+        await BinUtils.WriteString(ms, "           code by           rast         specs  by         moneyl       parsed with      kaitai.io     special thanks       Camo                                          Read The         Martian     Chronicles from  Ray Bradbury.   I liked them.         ", 256, token);
         await BinUtils.WriteZeroes(ms, 3, token);
         await BinUtils.Write(ms,
             new byte[]
@@ -198,7 +179,7 @@ doc: Compressed entry data size in bytes. If file is not compressed, should be 0
         NOTE: how to get compDataSize for compressed-only mode?
         */
 
-        var ext = Path.GetExtension(logicalArchive.Name).ToLower(CultureInfo.InvariantCulture);
+        var ext = FormatUtils.GetLastExtension(logicalArchive.Name).ToLower(CultureInfo.InvariantCulture);
         // all str2 are the same
         if (ext == ".str2_pc")
         {

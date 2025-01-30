@@ -16,7 +16,7 @@ public struct RbbAabb
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         MinX = stream.ReadInt16();
@@ -27,8 +27,8 @@ public struct RbbAabb
         MaxZ = stream.ReadInt16();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for RbbAabb. Expected {SizeInFile} bytes, read {bytesRead} bytes");

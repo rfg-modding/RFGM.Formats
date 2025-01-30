@@ -26,7 +26,7 @@ public struct TerrainSubzoneData
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         SubzoneIndex = stream.ReadUInt32();
@@ -46,8 +46,8 @@ public struct TerrainSubzoneData
         stream.Skip(996);
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for TerrainSubzoneData. Expected {SizeInFile} bytes, read {bytesRead} bytes");

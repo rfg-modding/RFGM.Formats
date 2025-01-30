@@ -97,7 +97,7 @@ public partial class RfgVpp
         var decompressedLength = Header.LenData;
         switch (profile)
         {
-            case OptimizeFor.Speed:
+            case OptimizeFor.speed:
             {
                 using var inflaterStream = new InflaterInputStream(compressed);
                 using var tmpView = new StreamView(inflaterStream, 0, decompressedLength, "temporary inflated vpp");
@@ -112,7 +112,7 @@ public partial class RfgVpp
 
                 return ms;
             }
-            case OptimizeFor.Memory:
+            case OptimizeFor.memory:
                 return new SeekableInflaterStream(compressed, decompressedLength, "inflated vpp");
             default:
                 throw new ArgumentOutOfRangeException(nameof(profile), profile, null);
@@ -153,7 +153,7 @@ public partial class RfgVpp
         var decompressedLength = entryData.XLenData;
         switch (profile)
         {
-            case OptimizeFor.Speed:
+            case OptimizeFor.speed:
             {
                 using var inflaterStream = new InflaterInputStream(compressed);
                 using var tmpView = new StreamView(inflaterStream, 0, decompressedLength, "temporary inflated entry");
@@ -168,7 +168,7 @@ public partial class RfgVpp
 
                 return ms;
             }
-            case OptimizeFor.Memory:
+            case OptimizeFor.memory:
                 var seekableInflaterStream = new SeekableInflaterStream(compressed, decompressedLength, $"inflated {entryData.XName}");
                 var view = new StreamView(seekableInflaterStream, 0, decompressedLength, entryData.XName);
                 return view;

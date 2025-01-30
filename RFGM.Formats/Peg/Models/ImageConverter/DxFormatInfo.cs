@@ -1,3 +1,5 @@
+using Silk.NET.DXGI;
+
 namespace RFGM.Formats.Peg.Models.ImageConverter;
 
-record DxFormatInfo(Silk.NET.DXGI.Format DxFormat, bool Compressed, bool Extended, int CompressionRatio);
+record DxFormatInfo(Format DxFormat, bool Compressed, bool Extended, int CompressionRatio);

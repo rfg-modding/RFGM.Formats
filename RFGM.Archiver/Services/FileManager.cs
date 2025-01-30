@@ -1,15 +1,15 @@
 using System.IO.Abstractions;
 using Microsoft.Extensions.Logging;
-using RFGM.Formats;
 
 namespace RFGM.Archiver.Services;
 
 public class FileManager(IFileSystem fileSystem, ILogger<FileManager> log)
 {
-    public IFileInfo CreateFile(IDirectoryInfo parent, string fileName, bool force)
+    public IFileInfo CreateFileRecursive(IDirectoryInfo parent, string fileName, bool force) => CreateFileRecursive(fileSystem.Path.Combine(parent.FullName, fileName), force);
+
+    public IFileInfo CreateFileRecursive(string path, bool force)
     {
-        var dstFilePath = fileSystem.Path.Combine(parent.FullName, fileName);
-        var dstFile = fileSystem.FileInfo.New(dstFilePath);
+        var dstFile = fileSystem.FileInfo.New(path);
         if (dstFile.Exists)
         {
             if (force)
@@ -24,28 +24,28 @@ public class FileManager(IFileSystem fileSystem, ILogger<FileManager> log)
             }
         }
 
+        CreateDirectoryRecursive(dstFile.Directory!);
+        log.LogTrace($"Create file {dstFile}");
+        dstFile.Create().Close();
+        dstFile.Refresh();
+
         return dstFile;
     }
 
-    public IDirectoryInfo CreateSubDirectory(IDirectoryInfo parent, string dirName)
+    public IDirectoryInfo CreateDirectoryRecursive(IDirectoryInfo directoryInfo)
     {
-        var path = fileSystem.Path.Combine(parent.FullName, dirName);
-        var result = fileSystem.DirectoryInfo.New(path);
-        if (!result.Exists)
+        var stack = new Stack<IDirectoryInfo>();
+        var current = directoryInfo;
+        while (current != null)
         {
-            log.LogTrace($"Create dir {result}");
-            result.Create();
+            stack.Push(current);
+            current = current.Parent;
         }
 
-        return result;
-    }
-
-    public IDirectoryInfo CreateDirectory(IDirectoryInfo directoryInfo)
-    {
-        if (!directoryInfo.Exists)
+        foreach (var x in stack.Where(x => !x.Exists))
         {
             log.LogTrace($"Create dir {directoryInfo}");
-            directoryInfo.Create();
+            x.Create();
         }
 
         return directoryInfo;

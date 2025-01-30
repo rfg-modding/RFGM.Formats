@@ -9,49 +9,6 @@ namespace RFGM.Formats.Streams;
 /// <param name="Gpu"></param>
 public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
 {
-    /// <summary>
-    /// Opens a pair of CPU+GPU files from any one of them. Accounts for unpacked archives where order is prepended to file names
-    /// </summary>
-    public static PairedFiles? FromExistingFile(IFileInfo input)
-    {
-        if (!input.Exists)
-        {
-            return null;
-        }
-
-        var cpu = GetCpuFileName(input.FullName);
-        var gpu = GetGpuFileName(input.FullName);
-        if (cpu is null || gpu is null)
-        {
-            return null;
-        }
-
-
-        var cpuFile = LocateFile(input.FileSystem, cpu);
-        var gpuFile = LocateFile(input.FileSystem, gpu);
-        if (cpuFile is null || gpuFile is null)
-        {
-            return null;
-        }
-
-        var nameWithoutNumber = Utils.GetNameWithoutNumber(cpuFile.Name);
-
-        return new(cpuFile, gpuFile, nameWithoutNumber);
-    }
-
-    private static IFileInfo? LocateFile(IFileSystem fileSystem, string fullPath)
-    {
-        var f = fileSystem.FileInfo.New(fullPath);
-        if (f.Exists)
-        {
-            return f;
-        }
-
-        var nameWithoutNumber = Utils.GetNameWithoutNumber(f.Name);
-        var fileWithOtherNumber = f.Directory!.EnumerateFiles().FirstOrDefault(x => x.Name.EndsWith(nameWithoutNumber));
-        return fileWithOtherNumber;
-    }
-
     public PairedStreams OpenRead()
     {
         var c = Cpu.OpenRead();
@@ -73,7 +30,7 @@ public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
     /// </summary>
     public static string? GetCpuFileName(string fileName)
     {
-        var extWithDot = Path.GetExtension(fileName).ToLowerInvariant();
+        var extWithDot = FormatUtils.GetLastExtension(fileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extWithDot))
         {
             return null;
@@ -97,7 +54,7 @@ public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
     /// </summary>
     public static string? GetGpuFileName(string fileName)
     {
-        var extWithDot = Path.GetExtension(fileName).ToLowerInvariant();
+        var extWithDot = FormatUtils.GetLastExtension(fileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extWithDot))
         {
             return null;

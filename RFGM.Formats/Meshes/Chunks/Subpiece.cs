@@ -30,7 +30,7 @@ public struct Subpiece
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         Bmin = stream.ReadStruct<Vector3>();
@@ -46,8 +46,8 @@ public struct Subpiece
         Flags = stream.ReadUInt8();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for Subpiece. Expected {SizeInFile} bytes, read {bytesRead} bytes");

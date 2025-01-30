@@ -21,7 +21,7 @@ public struct TerrainStitchInstance
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         StitchChunkNameOffset = stream.ReadUInt32();
@@ -35,8 +35,8 @@ public struct TerrainStitchInstance
         stream.Skip(32);
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for TerrainStitchInstance. Expected {SizeInFile} bytes, read {bytesRead} bytes");

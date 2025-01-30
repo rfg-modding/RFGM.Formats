@@ -36,11 +36,11 @@ public class AsmFile(string name)
             return false;
         }
 
-        ushort numContainers = stream.ReadUInt16();
-        for (int i = 0; i < numContainers; i++)
+        var numContainers = stream.ReadUInt16();
+        for (var i = 0; i < numContainers; i++)
         {
             AsmContainer container = new();
-            if (!container.Read(stream, out string containerError))
+            if (!container.Read(stream, out var containerError))
             {
                 error = $"Error reading .asm_pc file container '{container}'.{Environment.NewLine} - {containerError}";
                 return false;
@@ -65,9 +65,9 @@ public class AsmFile(string name)
         stream.WriteUInt32(ExpectedSignature);
         stream.WriteUInt16(Version);
         stream.WriteUInt16((ushort)Containers.Count);
-        foreach (AsmContainer container in Containers)
+        foreach (var container in Containers)
         {
-            if (!container.Write(stream, out string containerError))
+            if (!container.Write(stream, out var containerError))
             {
                 error = $"Error writing .asm_pc file container '{container.Name}'.{Environment.NewLine} - {containerError}";
                 return false;

@@ -19,7 +19,7 @@ public struct RoadMeshData
     public void Read(Stream stream)
     {
 #if DEBUG
-        long startPos = stream.Position;        
+        var startPos = stream.Position;        
 #endif
 
         NumMeshInstances = stream.ReadUInt32();
@@ -32,8 +32,8 @@ public struct RoadMeshData
         Position = stream.ReadStruct<Vector3>();
         
 #if DEBUG
-        long endPos = stream.Position;
-        long bytesRead = endPos - startPos;
+        var endPos = stream.Position;
+        var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
             throw new Exception($"Invalid size for RoadMeshData. Expected {SizeInFile} bytes, read {bytesRead} bytes");
