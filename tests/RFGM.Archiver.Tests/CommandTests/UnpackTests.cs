@@ -322,6 +322,7 @@ public class UnpackTests
         expected.LoadDirectory("unpack_default/cloth_sim {vppMode=normal}.vpp_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "foo/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack");
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "foo/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
 
         var code = await Program.RunMain([
             "unpack",
@@ -347,6 +348,8 @@ public class UnpackTests
         expected.LoadDirectory("unpack_default/cloth_sim {vppMode=normal}.vpp_pc", "test/result");
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "foo/result");
         expected.LoadDirectory("unpack_default/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/result");
+        // workaround for very long path git error
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "foo/result/xray_effect {vppMode=compacted}.str2_pc/.unpack");
 
         var code = await Program.RunMain([
             "unpack",
@@ -376,6 +379,8 @@ public class UnpackTests
         expected.LoadDirectory("unpack_default/cloth_sim {vppMode=normal}.vpp_pc", "/result");
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "/result");
         expected.LoadDirectory("unpack_default/xray_effect {index=1, pegAlign=16}.cpeg_pc", "/result");
+        // workaround for very long path git error
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "/result/xray_effect {vppMode=compacted}.str2_pc/.unpack");
 
         var code = await Program.RunMain([
             "unpack",
@@ -559,6 +564,8 @@ public class UnpackTests
         var expected = fs.Clone();
         expected.LoadDirectory("unpack_default/cloth_sim {vppMode=normal}.vpp_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "test/.unpack");
+        // workaround for very long path git error
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
         var filterExtensions = new HashSet<string>() {".str2_pc", ".cpeg_pc", ".gpeg_pc"};
         var extraFiles = expected.DirectoryInfo.New($"test/.unpack/")
             .EnumerateDirectories()
@@ -628,6 +635,8 @@ public class UnpackTests
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack");
         expected.LoadFile("unpack/metadata_recursive/.metadata.csv", "test/.unpack");
+        // workaround for very long path git error
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
 
         var code = await Program.RunMain([
             "unpack",
@@ -679,6 +688,8 @@ public class UnpackTests
         expected.LoadDirectory("unpack_default/cloth_sim {vppMode=normal}.vpp_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack");
+        // workaround for very long path git error
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
 
         var code = await Program.RunMain([
             "unpack",

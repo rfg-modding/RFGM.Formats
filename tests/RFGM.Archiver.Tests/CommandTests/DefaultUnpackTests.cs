@@ -24,6 +24,11 @@ public class DefaultUnpackTests
 
         var expected = fs.Clone();
         expected.LoadDirectory(output, "test/.unpack");
+        if (primary == "xray_effect.str2_pc")
+        {
+            // workaround for very long path git error
+            expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
+        }
 
         var code = await Program.RunMain([fs.AllFiles.First()], false, LogLevel.Trace, TestUtils.Hack(fs));
 
@@ -43,6 +48,8 @@ public class DefaultUnpackTests
         expected.LoadDirectory("unpack_default/cloth_sim {vppMode=normal}.vpp_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "test/.unpack");
         expected.LoadDirectory("unpack_default/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack");
+        // workaround for very long path git error
+        expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
 
         // ignore gpeg
         var code = await Program.RunMain(fs.AllFiles.ToArray()[..^1], false, LogLevel.Trace, TestUtils.Hack(fs));
