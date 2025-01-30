@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using RFGM.Formats.Meshes.Chunks;
 using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Streams;
@@ -14,77 +15,109 @@ public class ChunkFile(string name)
 
     public MeshConfig Config = new();
     public List<string> Textures = new();
+    List<RfgMaterial> Materials = new();
+    public List<GeneralObject> GeneralObjects = new();
     public List<Destroyable> Destroyables = new();
-    
+    public List<ScriptPoint> ScriptPoints = new();
+    public List<ObjectIdentifier> Identifiers = new();
+    public List<ObjectSkirt> ObjectSkirts = new();
+    public List<LightClipObject> LightClipObjects = new();
+
     private const uint HavokSignature = 1212891981;
 
-    //Note: This currently doesn't work for all chunk files. Need to do further reverse engineering and figure out what the problem is with this code + replace any hacky code.
-    //TODO: Make this work for all chunk files - See line 129
     public void ReadHeader(Stream cpuFile)
     {
         //Validate header
-        Header = cpuFile.ReadStruct<ChunkFileHeader>();
-        if (Header.Signature != 2966351781)
+        Header.Read(cpuFile);
+        if (Header.Signature != 0xB0CEEFA5)
         {
             throw new Exception($"Invalid chunk file signature. Expected 2966351781, found {Header.Signature}.");
         }
+
         if (Header.Version != 56)
         {
             throw new Exception($"Invalid chunk file version. Expected 56, found {Header.Version}.");
         }
+
         if (Header.SourceVersion != 20)
         {
             throw new Exception($"Invalid chunk file source version. Expected 20, found {Header.SourceVersion}.");
         }
-        
-        //Skip some unknown data. Skipped/read in the current best guess for how the data is structured
-        cpuFile.Skip(400);
-        uint unkValue0 = cpuFile.ReadUInt32();
-        cpuFile.Skip(28);
-        uint unkValue1 = cpuFile.ReadUInt32();
-        cpuFile.Skip(32);
-        uint unkValue2 = cpuFile.ReadUInt32();
-        cpuFile.Skip(184);
-        
-        //Should be at the render data offset
-        if (cpuFile.Position != Header.RenderCpuDataOffset)
+
+        //After reading the 656 header bytes the game is hardcoded to jump to offset 704 and reader the mesh config
+        if (Header.RenderCpuDataOffset != 704)
         {
-            throw new Exception($"Error! Haven't reached the chunk render data section of chunk file {Name} when expected!");
+            throw new Exception($"Unexpected render cpu data offset. Expected 704, found {Header.RenderCpuDataOffset}.");
         }
-        
+        cpuFile.Seek(704, SeekOrigin.Begin);
         Config.Read(cpuFile);
-        
+
         //Read texture names
         cpuFile.AlignRead(16);
         uint textureNamesBlockSize = cpuFile.ReadUInt32();
         Textures = cpuFile.ReadSizedStringList(textureNamesBlockSize);
 
-        //TODO: Figure out what this data is
-        //Some kind of material data
         cpuFile.AlignRead(16);
-        uint materialOffset = cpuFile.ReadUInt32();
+        uint materialMapOffsetData = cpuFile.ReadUInt32(); //Likely only set to a valid value at runtime
         uint numMaterials = cpuFile.ReadUInt32();
-        cpuFile.Skip(numMaterials * 4); //Potentially a list of material IDs or offsets
-        cpuFile.Skip(materialOffset);
-        cpuFile.Skip(numMaterials * 8);
+        cpuFile.Skip(numMaterials * 4); //Potentially a list of material IDs or offsets //TODO: Read this data and figure out what it is
         cpuFile.AlignRead(16);
+        cpuFile.Skip(numMaterials * 8); //TODO: Figure out what this data is
 
-        //TODO: Figure out what data is between here and the destroyables list
+        if (numMaterials > 0)
+        {
+            cpuFile.AlignRead(16);
+            for (int i = 0; i < numMaterials; i++)
+            {
+                cpuFile.AlignRead(16);
+                //TODO: Make sure we're not skipping any important data by doing this
+                //cpuFile.Seek(MaterialOffsets[i], SeekOrigin.Begin);
+
+                RfgMaterial material = new();
+                material.Read(cpuFile);
+                Materials.Add(material);
+            }
+        }
+        cpuFile.AlignRead(64);
         
+        if (Header.NumGeneralObjects > 0)
+        {
+            for (int i = 0; i < Header.NumGeneralObjects; i++)
+            {
+                GeneralObject obj = new();
+                obj.Read(cpuFile);
+                GeneralObjects.Add(obj);
+            }
+
+            foreach (GeneralObject obj in GeneralObjects)
+            {
+                string name = cpuFile.ReadAsciiNullTerminatedString();
+                obj.Name = name;
+            }
+        }
+
+        //TODO: Figure out what data is here. Appears to be some kind of tree
+        //TODO: Once that's done add check make sure cpuFile.Position == Header.DestructionOffset
+
         //Skip to destroyables. Haven't fully reversed the format yet
         cpuFile.Seek(Header.DestructionOffset, SeekOrigin.Begin);
         cpuFile.AlignRead(128);
-        uint numDestroyables = cpuFile.ReadUInt32();
-        cpuFile.Skip((numDestroyables * 8) + 4);
-        cpuFile.AlignRead(16);
-        
+
+        //TODO: Remove once this BS is figured out
+        long destroyablesStartPos = cpuFile.Position;
+        byte[] destroyablesData = new byte[Header.DestructionDataSize];
+        cpuFile.ReadExactly(destroyablesData);
+        cpuFile.Seek(destroyablesStartPos, SeekOrigin.Begin);
+
+        int numDestroyables = cpuFile.ReadInt32();
+        cpuFile.Skip((numDestroyables * 8) + 4); //TODO: Is there any important data here?
+
         //Read destroyables
         for (int i = 0; i < numDestroyables; i++)
         {
+            cpuFile.AlignRead(16);
             Destroyable destroyable = new();
-            long destroyableStartPos = cpuFile.Position;
-            
-            destroyable.Header = cpuFile.ReadStruct<DestroyableHeader>();
+            destroyable.Header.Read(cpuFile);
             cpuFile.AlignRead(128);
 
             for (int j = 0; j < destroyable.Header.NumObjects; j++)
@@ -93,21 +126,23 @@ public class ChunkFile(string name)
                 subpiece.Read(cpuFile);
                 destroyable.Subpieces.Add(subpiece);
             }
+
             for (int j = 0; j < destroyable.Header.NumObjects; j++)
             {
                 SubpieceData subpieceData = new();
                 subpieceData.Read(cpuFile);
                 destroyable.SubpieceData.Add(subpieceData);
             }
-            
-            //TODO: Figure out what this data is meant to be. Game has some physical material code here. Maybe link material
+
             foreach (Subpiece subpiece in destroyable.Subpieces)
             {
-                cpuFile.Skip(subpiece.NumLinks * 2);
+                for (int j = 0; j < subpiece.NumLinks; j++)
+                {
+                    subpiece.Links.Add(cpuFile.ReadUInt16());
+                }
             }
-            
             cpuFile.AlignRead(4);
-            
+
             //Read links
             for (int j = 0; j < destroyable.Header.NumLinks; j++)
             {
@@ -116,7 +151,7 @@ public class ChunkFile(string name)
                 destroyable.Links.Add(link);
             }
             cpuFile.AlignRead(4);
-            
+
             //Read dlods
             for (int j = 0; j < destroyable.Header.NumDlods; j++)
             {
@@ -125,82 +160,209 @@ public class ChunkFile(string name)
                 destroyable.Dlods.Add(dlod);
             }
             cpuFile.AlignRead(4);
-            
-            //TODO: REQUIRED FOR THIS TO WORK
-            //TODO: Figure out what data goes here and write code to reliably load it
+
+            //TODO: Port this to plain safe C#. Maybe keep it temporarily and run it on every file + check if this func + the rewrite have the same resulting file offset
+            //Read rbb node tree
+            ReadRbbNodesFromByteArray(destroyablesData, destroyablesStartPos, cpuFile.Position, out long newStreamPos, out destroyable.RbbNodes);
+            cpuFile.Position = newStreamPos;
+            cpuFile.AlignRead(4);
+
+            destroyable.InstanceData.Read(cpuFile);
+            cpuFile.AlignRead(16);
+
+            //TODO: Save this data on the destroyable
+            uint maybeTransformBufferSize = cpuFile.Peek<uint>(); //Includes the size of this uint
+            byte[] maybeTransformBuffer = new byte[maybeTransformBufferSize];
+            cpuFile.ReadExactly(maybeTransformBuffer);
+
+            cpuFile.AlignRead(16);
+            Destroyables.Add(destroyable);
         }
-        
+
+        cpuFile.AlignRead(64);
+        if (cpuFile.Position != Header.CollisionModelDataOffset)
+        {
+            throw new Exception($"Did not read all destroyable data. Expected offset to be {Header.CollisionModelDataOffset} after reading destroyables. Currently is {cpuFile.Position}");
+        }
+
         //Skip collision models. Some kind of havok data format that hasn't been reversed yet.
         if (!SkipHavokData(cpuFile))
         {
             throw new Exception("Failed to skip havok data in chunk file.");
         }
-        
-        //Read destroyable UIDs, names, indices
-        cpuFile.AlignRead(128);
-        for (int i = 0; i < Destroyables.Count; i++)
+        cpuFile.AlignRead(64);
+
+        for (int i = 0; i < Header.NumScriptPoints; i++)
         {
-            uint uid = cpuFile.ReadUInt32();
-            
-            //TODO: Move this into a helper function and use it in RigFileHeader too
-            //Read destroyable name which is up to 24 characters long
-            string destroyableName = string.Empty;
-            for (int j = 0; j < 24; j++)
+            ScriptPoint scriptPoint = new();
+            scriptPoint.Read(cpuFile);
+            ScriptPoints.Add(scriptPoint);
+        }
+        cpuFile.AlignRead(64);
+
+        for (int i = 0; i < Header.NumObjectIdentifiers; i++)
+        {
+            ObjectIdentifier identifier = new();
+            identifier.Read(cpuFile);
+            Identifiers.Add(identifier);
+        }
+        cpuFile.AlignRead(64);
+
+        //TODO: Figure out if NumObjectSkirts and NumLightClipObjects need to be calculated or set based on other data in the .cchk_pc file
+        //TODO: After reading every single vanilla cchk file none of them have object skirts or light clips (at least based on the count in the file header)
+        for (int i = 0; i < Header.NumObjectSkirts; i++)
+        {
+            ObjectSkirt skirt = new();
+            skirt.Read(cpuFile);
+            ObjectSkirts.Add(skirt);
+        }
+        if (Header.NumObjectSkirts > 0)
+        {
+            foreach (ObjectSkirt skirt in ObjectSkirts)
             {
-                if (cpuFile.Peek<char>() == '\0')
-                    break;
-            
-                destroyableName += cpuFile.ReadChar8();
-            }
-            
-            int destroyableIndex = cpuFile.ReadInt32();
-            uint isDestroyable = cpuFile.ReadUInt32();
-            uint numSnapPoints = cpuFile.ReadUInt32();
-            
-            Destroyable destroyable = Destroyables[destroyableIndex];
-            destroyable.UID = uid;
-            destroyable.Name = destroyableName;
-            destroyable.IsDestroyable = isDestroyable;
-            destroyable.NumSnapPoints = numSnapPoints;
-            for (int j = 0; j < 10; j++)
-            {
-                destroyable.SnapPoints[j].Read(cpuFile);
+                for (int i = 0; i < skirt.NumWeldEdges; i++)
+                {
+                    ObjectSkirtEdge edge = new();
+                    edge.Read(cpuFile);
+                    skirt.Edges.Add(edge);
+                }
             }
         }
-        
+        cpuFile.AlignRead(64);
+
+        for (int i = 0; i < Header.NumLightClipObjects; i++)
+        {
+            LightClipObject lightClipObject = new();
+            lightClipObject.Read(cpuFile);
+            LightClipObjects.Add(lightClipObject);
+        }
+        if (Header.NumLightClipObjects > 0)
+        {
+            foreach (LightClipObject lightClipObject in LightClipObjects)
+            {
+                string name = cpuFile.ReadAsciiNullTerminatedString();
+                lightClipObject.Name = name;
+            }
+        }
+        cpuFile.AlignRead(64);
+
+        if (Header.Version >= 53)
+        {
+            //TODO: The decompilation for chunk_base_load_internal indicates that there should be "destroyable kd trees" here. It's not read yet since we don't need it for meshes
+            //TODO: Add code to read them
+        }
+
         LoadedCpuFile = true;
     }
-    
+
+    //C# reconstruction of the confusing rfg_rbb_read_nodes() function from rfg.exe. Used to help figure out how it works
+    //This is temporary until its rewritten in safe C#
+    private unsafe void ReadRbbNodesFromByteArray(byte[] destroyablesData, long destroyablesStartPos, long initialStreamPos, out long newStreamPos, out List<RbbNode> rbbNodes)
+    {
+        //TODO: Add code to convert from rfg_rbb_node to rbbNodes, read the node data list, and add to rbbNodes
+        rbbNodes = new List<RbbNode>();
+        int offset = (int)(initialStreamPos - destroyablesStartPos);
+        GCHandle handle = GCHandle.Alloc(destroyablesData, GCHandleType.Pinned);
+
+        fixed (byte* data = destroyablesData)
+        {
+            rfg_rbb_node* node = (rfg_rbb_node*)(data + offset);
+            offset += 20;
+            rfg_rbb_read_nodes(node, data, &offset);
+        }
+
+        newStreamPos = destroyablesStartPos + offset;
+        handle.Free();
+    }
+
+    //TODO: Remove these temporary types once rbb node code is rewritten. These are temporarily here just to do pointer math exactly like the game
+    private struct fp_aabb
+    {
+        public short min_x;
+        public short min_y;
+        public short min_z;
+        public short max_x;
+        public short max_y;
+        public short max_z;
+    }
+
+    private struct et_ptr_offset<T> where T : unmanaged
+    {
+        public int m_offset;
+    }
+
+    private struct rfg_rbb_node()
+    {
+        public int num_objects = 0;
+
+        public fp_aabb aabb = new();
+
+        //public uint NodeDataOffset = 0; //et_ptr_offset<unsigned char, 0> node_data;
+        public et_ptr_offset<byte> node_data;
+    }
+
+    //TODO: Figure out what the hell this is doing and convert it to safe C#
+    private unsafe void rfg_rbb_read_nodes(rfg_rbb_node* node, byte* data, int* offset)
+    {
+        rfg_rbb_node* node_1 = node;
+        int num_objects = node_1->num_objects;
+        bool condition = (num_objects != 0);
+
+        if (num_objects >= 0)
+        {
+            while (!condition)
+            {
+                //node_1->node_data.m_offset = *(uint*)((long)offset - (long)&node_1->node_data + (long)data);
+                node_1->node_data.m_offset = (int)(*offset - (long)&node_1->node_data + (long)data);
+                *offset += 40;
+
+                rfg_rbb_read_nodes((rfg_rbb_node*)(node_1->node_data.m_offset + (byte*)&node_1->node_data), data, offset);
+                int m_offset = node_1->node_data.m_offset;
+
+                int nextNodeNumObjects = *(int*)(((byte*)&node_1->node_data) + m_offset + 20);
+
+                node_1 = (rfg_rbb_node*)(((byte*)&node_1->node_data) + m_offset + 20);
+                condition = (nextNodeNumObjects != 0);
+
+                if (nextNodeNumObjects < 0)
+                    return;
+            }
+
+            node_1->node_data.m_offset = (int)(*offset - (long)&node_1->node_data + (long)data);
+            *offset += node_1->num_objects * 4;
+        }
+    }
+
     private bool SkipHavokData(Stream stream)
     {
         long startPos = stream.Position;
         uint maybeSignature = stream.ReadUInt32();
         if (maybeSignature != HavokSignature)
             return false;
-        
+
         stream.Skip(4);
         uint size = stream.ReadUInt32();
         stream.Seek(startPos + size, SeekOrigin.Begin);
         return true;
     }
-    
+
     public MeshInstanceData ReadData(Stream gpuFile)
     {
         if (!LoadedCpuFile)
         {
             throw new Exception("You must call ChunkFile.ReadHeader() before calling ChunkFile.ReadData() on ChunkFile");
         }
-        
+
         //Read index buffer
         gpuFile.Seek(16, SeekOrigin.Begin);
         byte[] indices = new byte[Config.NumIndices * Config.IndexSize];
         gpuFile.ReadExactly(indices);
-        
+
         //Read vertex buffer
         gpuFile.AlignRead(16);
         byte[] vertices = new byte[Config.NumVertices * Config.VertexStride0];
         gpuFile.ReadExactly(vertices);
-        
+
         return new MeshInstanceData(Config, vertices, indices);
     }
 }

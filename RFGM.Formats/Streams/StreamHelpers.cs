@@ -215,6 +215,25 @@ namespace RFGM.Formats.Streams
             stream.Write(bytes, 0, bytes.Length);
             return bytes.Length;
         }
+
+        //Read bytes into string until a null terminator is reached up to a max of the provided length. Always reads length bytes regardless of whether the string uses them all.
+        //For fixed size char arrays stored in some RFG file formats;
+        public static string ReadSizedString(this Stream stream, int length)
+        {
+            long startPos = stream.Position;
+            string str = string.Empty;
+            for (int j = 0; j < 24; j++)
+            {
+                char nextChar = stream.Peek<char>();
+                if (nextChar == '\0')
+                    break;
+            
+                str += stream.ReadChar8();
+            }
+            stream.Seek(startPos + length, SeekOrigin.Begin); //Always read length bytes
+
+            return str;
+        }
         #endregion
 
         #region Float helpers

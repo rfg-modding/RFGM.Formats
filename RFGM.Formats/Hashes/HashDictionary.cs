@@ -1839,6 +1839,13 @@ public class HashDictionary
         //The hash of this is the vanilla DistrictHash for all the MP and WC maps
         "default",
         
-        "POSITION", "NORMAL", "TANGENT", "TEXCOORD", "BLENDWEIGHT", "BLENDINDEX"
+        "POSITION", "NORMAL", "TANGENT", "TEXCOORD", "BLENDWEIGHT", "BLENDINDEX",
+        
+        //Vanilla physical material names from rfg_materials.xtbl
+        "DEFAULT", "Carbon", "Carbon-EDF", "Cloth", "Composite-Weak", "Composite-Normal", "Composite-Strong", "Concrete-Weak", "Concrete-Normal", "Concrete-Strong", 
+        "Electronics-Weak", "Flesh", "Glass-Weak", "Ice-Normal", "Indestructo", "Plastic-Normal", "Plastic-Weak", "Rubber", "Steel-Weak", "Steel-Normal", "Steel-StrongLight", 
+        "Steel-Strong", "Steel-SuperStrong", "Stone-Normal", "Stone-StrongLight", "Stone-Indestructo", "EOS-Glass", 
+        
+        "misc-white.TGA", "flat-normalmap.tga",
     ];
 }
