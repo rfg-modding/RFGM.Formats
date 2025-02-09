@@ -20,4 +20,13 @@
       <PackageReference Include="TestableIO.System.IO.Abstractions" Version="21.2.1" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Content Include="..\LICENSE">
+        <Link>LICENSE</Link>
+      </Content>
+      <Content Include="..\README.md">
+        <Link>README.md</Link>
+      </Content>
+    </ItemGroup>
+
 </Project>
