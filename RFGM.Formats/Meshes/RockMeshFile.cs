@@ -3,6 +3,7 @@ using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Meshes;
 
+//.cstch_pc/.gstch_pc files
 public class RockMeshFile
 {
     public string Name;
