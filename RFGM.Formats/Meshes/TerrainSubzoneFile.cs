@@ -1,3 +1,4 @@
+using RFGM.Formats.Materials;
 using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Meshes.Terrain;
 using RFGM.Formats.Streams;

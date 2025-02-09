@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using RFGM.Formats.Materials;
 using RFGM.Formats.Meshes.Chunks;
 using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Streams;

@@ -1,7 +1,8 @@
 using RFGM.Formats.Hashes;
+using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Streams;
 
-namespace RFGM.Formats.Meshes.Shared;
+namespace RFGM.Formats.Materials;
 
 public class RfgMaterial
 {

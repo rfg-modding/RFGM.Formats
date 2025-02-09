@@ -1,4 +1,5 @@
 using System.Numerics;
+using RFGM.Formats.Materials;
 using RFGM.Formats.Math;
 using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Streams;
