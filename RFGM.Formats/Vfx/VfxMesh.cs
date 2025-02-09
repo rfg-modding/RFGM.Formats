@@ -95,8 +95,8 @@ public class VfxMesh
         ShapeCenterOfMass = stream.ReadStruct<Vector3>();
         ShapeInertiaTensor = stream.ReadStruct<Matrix3x3>();
         
-#if DEBUG
         var endPos = stream.Position;
+#if DEBUG
         var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {

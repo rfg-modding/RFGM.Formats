@@ -264,8 +264,8 @@ public class VfxCorona
         ViewFadeRadiusEnabled = stream.ReadBoolean();
         stream.Skip(5);
         
-#if DEBUG
         var endPos = stream.Position;
+#if DEBUG
         var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {

@@ -77,8 +77,8 @@ public class VfxFilter
         UniqueDataOffset = stream.ReadUInt32();
         stream.Skip(4);
         
-#if DEBUG
         var endPos = stream.Position;
+#if DEBUG
         var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {

@@ -71,8 +71,8 @@ public class VfxLight
         ParentIndex = stream.ReadInt32();
         stream.Skip(4);
         
-#if DEBUG
         var endPos = stream.Position;
+#if DEBUG
         var bytesRead = endPos - startPos;
         if (bytesRead != SizeInFile)
         {
