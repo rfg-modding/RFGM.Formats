@@ -181,7 +181,7 @@ public sealed class VppWriter(LogicalArchive logicalArchive)
 
         var ext = FormatUtils.GetLastExtension(logicalArchive.Name).ToLower(CultureInfo.InvariantCulture);
         // all str2 are the same
-        if (ext == ".str2_pc")
+        if (ext.Equals(".str2_pc", StringComparison.OrdinalIgnoreCase))
         {
             // TODO sometimes repacking is not enough and crashes the game. probably need to alter asm_pc file or do magic with offsets inside zlib stream
             return await WriteDataInternal(s, false, true, 9, 0, token);

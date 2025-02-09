@@ -9,8 +9,8 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
     protected FormatDescriptorBase()
     {
         Name = GetType().Name.Replace("Descriptor", "");
-        CanDecodeExtensions = CanDecodeExt.ToImmutableHashSet();
-        CanEncodeExtensions = CanEncodeExt.ToImmutableHashSet();
+        CanDecodeExtensions = CanDecodeExt.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
+        CanEncodeExtensions = CanEncodeExt.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
         CanDecode = CanDecodeExtensions.Any();
         CanEncode = CanEncodeExtensions.Any();
     }
@@ -109,7 +109,7 @@ public abstract class FormatDescriptorBase : IFormatDescriptor
 
     protected virtual string GetDecodeNameInternal(EntryInfo data, bool encodeProperties)
     {
-        var (name, originalExt) = FormatUtils.GetNameAndFullExt(data.Name);
+        var (name, originalExt) = FormatUtils.GetNameAndLastExt(data.Name);
         var newExt = GetDecodeExt(originalExt);
         var props = encodeProperties ?
             " " + data.Properties.Serialize()

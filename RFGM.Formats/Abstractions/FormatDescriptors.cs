@@ -16,7 +16,8 @@ public static class FormatDescriptors
         new PegDescriptor(),
         new XmlDescriptor(),
         new TextureDescriptor(),
-        new LocatextDescriptor()
+        new LocatextDescriptor(),
+        new AsmDescriptor(),
     };
 
     private static readonly ImmutableHashSet<IFormatDescriptor> AllDescriptors = Instances.ToHashSet().ToImmutableHashSet();

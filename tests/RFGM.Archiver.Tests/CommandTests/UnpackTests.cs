@@ -1,5 +1,4 @@
 using System.IO.Abstractions.TestingHelpers;
-using System.Xml.Linq;
 using FluentAssertions;
 using NLog;
 
@@ -534,7 +533,7 @@ public class UnpackTests
         {
             e!.Delete(true);
         }
-        var filterExtensions = new HashSet<string>() {".str2_pc", ".cpeg_pc", ".gpeg_pc"};
+        var filterExtensions = new HashSet<string> {".str2_pc", ".cpeg_pc", ".gpeg_pc"};
         var extraFiles = expected.DirectoryInfo.New($"test/.unpack/")
             .EnumerateDirectories()
             .SelectMany(x => x.EnumerateFiles().Where(x => filterExtensions.Contains(x.Extension)));
@@ -566,7 +565,7 @@ public class UnpackTests
         expected.LoadDirectory("unpack_default/xray_effect {vppMode=compacted}.str2_pc", "test/.unpack");
         // workaround for very long path git error
         expected.LoadDirectory("xray_peg/xray_effect {index=1, pegAlign=16}.cpeg_pc", "test/.unpack/xray_effect {vppMode=compacted}.str2_pc/.unpack");
-        var filterExtensions = new HashSet<string>() {".str2_pc", ".cpeg_pc", ".gpeg_pc"};
+        var filterExtensions = new HashSet<string> {".str2_pc", ".cpeg_pc", ".gpeg_pc"};
         var extraFiles = expected.DirectoryInfo.New($"test/.unpack/")
             .EnumerateDirectories()
             .SelectMany(x => x.EnumerateFiles().Where(x => filterExtensions.Contains(x.Extension)));

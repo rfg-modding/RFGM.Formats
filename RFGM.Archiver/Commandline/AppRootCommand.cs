@@ -30,7 +30,7 @@ public class AppRootCommand : RootCommand
         AddOption(forceArg);
         AddCommand(new Unpack());
         AddCommand(new Metadata());
-        AddCommand(new AppTest());
+        AddCommand(new Diagnostics());
         AddCommand(new Pack());
 
         Handler = CommandHandler.Create(Handle);

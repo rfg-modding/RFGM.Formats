@@ -48,11 +48,10 @@ public class Pack : Command
         ArgumentHelpName = "N"
     };
 
-    public override string? Description => @"Pack directories into containers
+    public override string? Description => @"Pack directories into containers, encode supported formats
 NOTES:
     * not recursive, nested directories are ignored
     * directory to pack must have valid name with required container properties
-    * either specify order prefix for every file or rely on sorting by name
     * keep original formatting in xml-like files, game crashes if they are reformatted
     * use -m to verify packed entries, compare with metadata obtained during unpack";
 

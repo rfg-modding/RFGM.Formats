@@ -1,12 +1,13 @@
 using System.IO.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using RFGM.Archiver.Commandline;
 using RFGM.Archiver.Models;
 using RFGM.Archiver.Models.Messages;
-using RFGM.Formats.Abstractions;
 
 namespace RFGM.Archiver.Services;
 
-public class Archiver(IFileSystem fileSystem, MetadataWriter metadataWriter, ArchiverState archiverState, Worker worker, Rick rick, ILogger<Archiver> log)
+public class Archiver(IFileSystem fileSystem, ArchiverState archiverState, Worker worker, Rick rick,IServiceScopeFactory serviceScopeFactory,  ILogger<Archiver> log)
 {
     /// <summary>
     /// Pack or unpack items from drag-and-drop on .exe
@@ -65,25 +66,31 @@ public class Archiver(IFileSystem fileSystem, MetadataWriter metadataWriter, Arc
         return await Process(messages, parallel, true, token);
     }
 
-    public async Task<ExitCode> CommandTest(List<string> input, int parallel, CancellationToken token)
+    public async Task<ExitCode> CommandDiagnostics(List<string> input, int parallel, CancellationToken token)
     {
-        log.LogWarning("You found a hidden [test] command! It does nothing useful, unfortunately, only runs some checks");
-        await Task.Yield();
-
-        return 0;
+        log.LogWarning("You found hidden [{name}] command! It does nothing useful, unfortunately, only runs some checks", nameof(Diagnostics));
+        var rfgPath = input.FirstOrDefault() ?? @"C:\Program Files (x86)\Steam\steamapps\common\Red Faction Guerrilla Re-MARS-tered\data";
+        var rfgDataDir = fileSystem.DirectoryInfo.New(rfgPath);
+        log.LogInformation("Using RFG path: [{}]", rfgDataDir.FullName);
+        await using var scope = serviceScopeFactory.CreateAsyncScope();
+        var archiverDiagnostics = scope.ServiceProvider.GetRequiredService<ArchiverDiagnostics>();
+        await archiverDiagnostics.Run(rfgDataDir, parallel, token);
+        return ExitCode.Ok;
     }
 
     private async Task<ExitCode> Process(IEnumerable<IMessage> messages, int parallel, bool checkOutput, CancellationToken token)
     {
-        await worker.Start(messages, parallel, token);
-        var logPath = fileSystem.Path.Combine(Environment.CurrentDirectory, ".rfgm.archiver.log");
+        await worker.Start(messages, parallel, true, token);
+        var logPath = fileSystem.Path.Combine(AppContext.BaseDirectory, ".rfgm.archiver.log");
         if (worker.Failed.Any())
         {
             log.LogError("Failed {count} tasks! Check log for details:\n\t{logPath}", worker.Failed.Count, logPath);
             return ExitCode.FailedTasks;
         }
-
-        await metadataWriter.Write(token);
+        await using var scope = serviceScopeFactory.CreateAsyncScope();
+        var metadataWriter = scope.ServiceProvider.GetRequiredService<MetadataWriter>();
+        await metadataWriter.WriteCsv(token);
+        await metadataWriter.WriteSqlite(token);
         if (!checkOutput)
         {
             return ExitCode.Ok;

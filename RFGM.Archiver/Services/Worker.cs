@@ -23,9 +23,9 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
     private static readonly object Locker = new();
 
 
-    public async Task Start(IMessage initialValue, int parallel, CancellationToken token) => await Start([initialValue], parallel, token);
+    public async Task Start(IMessage initialValue, int parallel, CancellationToken token) => await Start([initialValue], parallel, false, token);
 
-    public async Task Start(IEnumerable<IMessage> initialValues, int parallel, CancellationToken token)
+    public async Task Start(IEnumerable<IMessage> initialValues, int parallel, bool initialLowPriority, CancellationToken token)
     {
         actionBlock = new ActionBlock<IMessage>(HandleMessage, new ExecutionDataflowBlockOptions
         {
@@ -33,23 +33,47 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
             CancellationToken = token,
         });
         cancellationToken = token;
-        foreach (var x in initialValues)
-        {
-            lowPriority.Enqueue(x);
-        }
-
-        if (!lowPriority.Any())
+        var messages = initialValues.ToList();
+        if (!messages.Any())
         {
             log.LogWarning("Nothing to process");
             return;
         }
 
-        var m = lowPriority.Dequeue();
-        log.LogTrace("Posting initial message {message}", m);
-        actionBlock.Post(m);
-        Interlocked.Increment(ref posted);
+        if (initialLowPriority)
+        {
+            StartLowPriority(messages);
+        }
+        else
+        {
+            StartNormal(messages);
+        }
         await actionBlock.Completion;
 
+    }
+
+    private void StartNormal(List<IMessage> messages)
+    {
+        foreach (var m in messages)
+        {
+            actionBlock.Post(m);
+            Interlocked.Increment(ref posted);
+        }
+        log.LogTrace("Posted {x} initial messages", messages.Count);
+
+    }
+
+    private void StartLowPriority(List<IMessage> initialValues)
+    {
+        foreach (var x in initialValues)
+        {
+            lowPriority.Enqueue(x);
+        }
+
+        var m = lowPriority.Dequeue();
+        log.LogTrace("Posting initial low priority message {message}", m);
+        actionBlock.Post(m);
+        Interlocked.Increment(ref posted);
     }
 
     private async Task HandleMessage(IMessage message)
@@ -91,6 +115,11 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
 
     private void HandleFinally(IMessage message, List<IMessage> newMessages)
     {
+        if (finished % 1000 == 0)
+        {
+            log.LogDebug("Progress: posted={} pending={} finished={} failed={} inFlight={}", posted, Pending, finished, failed.Count, inFlight);
+        }
+
         var actualInFlight = Interlocked.Decrement(ref inFlight);
         if (cancellationToken.IsCancellationRequested)
         {
@@ -112,7 +141,6 @@ public class Worker(IServiceScopeFactory serviceScopeFactory, ILogger<Worker> lo
                 log.LogError("Fail! {failure}", failure);
             }
         }
-
 
         if (actualInFlight == 0 && actionBlock.InputCount == 0 && newMessages.Count == 0)
         {

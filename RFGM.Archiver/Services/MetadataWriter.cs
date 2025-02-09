@@ -1,19 +1,21 @@
 using System.IO.Abstractions;
 using Microsoft.Extensions.Logging;
-using RFGM.Archiver.Models;
+using RFGM.Archiver.Models.Db;
+using Metadata = RFGM.Archiver.Models.Metadata;
 
 namespace RFGM.Archiver.Services;
 
-public class MetadataWriter(FileManager fileManager, IFileSystem fileSystem, ArchiverState archiverState, ILogger<MetadataWriter> log)
+public class MetadataWriter(FileManager fileManager, IFileSystem fileSystem, ArchiverState archiverState, ArchiverContext context, ILogger<MetadataWriter> log)
 {
-    public async Task Write(CancellationToken token)
+    public async Task WriteCsv(CancellationToken token)
     {
         var metadata = archiverState.GetMetadata();
         if (!metadata.Any())
         {
             return;
         }
-        var destination = GetMetadataDestination(archiverState.GetDestinations());
+
+        var destination = fileSystem.DirectoryInfo.New(AppContext.BaseDirectory);
         fileManager.CreateDirectoryRecursive(destination);
         var file = fileManager.CreateFileRecursive(destination, Constants.MetadataFile, true);
         await using var s = file.Create();
@@ -34,19 +36,18 @@ public class MetadataWriter(FileManager fileManager, IFileSystem fileSystem, Arc
         log.LogInformation($"Saved metadata to:\n\t{file}");
     }
 
-    private IDirectoryInfo GetMetadataDestination(List<IDirectoryInfo> destinations)
+    public async Task WriteSqlite(CancellationToken token)
     {
-        switch (destinations.Count)
+        var metadata = archiverState.GetMetadata();
+        if (!metadata.Any())
         {
-            case 0:
-                log.LogWarning("No output destinations, saving metadata to working directory");
-                return fileSystem.DirectoryInfo.New(fileSystem.Directory.GetCurrentDirectory());
-            case 1:
-                return destinations.Single();
-            default:
-                log.LogWarning("Multiple output destinations, saving metadata to first one");
-                return destinations.First();
+            return;
         }
-    }
 
+        await context.RebuildTable(context.Metadata, token);
+        var dbMetadata = archiverState.GetMetadata().Select(x => new MetadataEntry(x));
+        await context.Metadata.AddRangeAsync(dbMetadata, token);
+        await context.SaveChangesAsync(token);
+        log.LogInformation($"Saved metadata to:\n\t{context.DbPath}");
+    }
 }

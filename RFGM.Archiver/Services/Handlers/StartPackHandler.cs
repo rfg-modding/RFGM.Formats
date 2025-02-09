@@ -92,7 +92,7 @@ public class StartPackHandler(IFileSystem fileSystem, FileManager fileManager, I
             throw new InvalidOperationException($"Container [{containerInfo.Name}] has duplicate files:\n{sb}");
         }
 
-        var container = new LogicalArchive(entries, containerInfo.Properties.VppMode!.Value, containerInfo.Name);
+        var container = new LogicalArchive(entries, containerInfo.Properties.VppMode!.Value, containerInfo.Name, 0, 0);
         using var writer = new VppWriter(container);
         var name = containerInfo.Descriptor.GetEncodeName(containerInfo);
         var file = fileManager.CreateFileRecursive(destination, name, message.Settings.Force);
@@ -187,7 +187,7 @@ public class StartPackHandler(IFileSystem fileSystem, FileManager fileManager, I
     private ProcessResult ProcessRegularFile(IFileInfo file)
     {
         var entryInfo = FormatDescriptors.RegularFile.ReadEntryForEncoding(file);
-        if (entryInfo.Name.EndsWith(".asm_pc", StringComparison.OrdinalIgnoreCase))
+        if (entryInfo.Name.EndsWith(AsmDescriptor.Extension, StringComparison.OrdinalIgnoreCase))
         {
             log.LogWarning("File [{name}] is an asm_pc asset assembler file. Any changes to sibling files require updating this asm_pc file, which is not supported yet. Be careful with your changes, game may crash!", file.Name);
         }

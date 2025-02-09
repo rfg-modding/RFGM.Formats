@@ -1,7 +1,10 @@
 using System.IO.Abstractions;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Xml;
+using RFGM.Formats.Peg.Models;
 using RFGM.Formats.Streams;
 
 namespace RFGM.Formats;
@@ -139,7 +142,7 @@ public static class FormatUtils
     /// <summary>
     /// Splits "name.foo.bar" to "name" + ".foo.bar"
     /// </summary>
-    public static (string name, string fullExt) GetNameAndFullExt(string input)
+    public static (string name, string lastExt) GetNameAndLastExt(string input)
     {
         var ext = GetLastExtension(input);
         var name = input[..^ext.Length];
@@ -168,4 +171,54 @@ public static class FormatUtils
 
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(false);
 
+
+    public static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters =
+        {
+            new SizeConverter(),
+            new IntStringConverter(),
+            new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)
+        },
+    };
+
+    /// <summary>
+    /// Wrapper around int to be readable from JSON string. required to survive broken json used for property serialization
+    /// </summary>
+    public record IntString(int Value)
+    {
+        public static implicit operator int(IntString x) => x.Value;
+        public static implicit operator IntString(int x) => new(x);
+        public override string ToString() => Value.ToString();
+    }
+
+    public class SizeConverter : JsonConverter<Size>
+    {
+        public override Size Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options) => Size.Parse(reader.GetString())!;
+
+        public override void Write(
+            Utf8JsonWriter writer,
+            Size value,
+            JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.ToString());
+    }
+
+    public class IntStringConverter : JsonConverter<IntString>
+    {
+        public override IntString Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options) => new(int.Parse(reader.GetString()!));
+
+        public override void Write(
+            Utf8JsonWriter writer,
+            IntString value,
+            JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.Value.ToString());
+    }
 }

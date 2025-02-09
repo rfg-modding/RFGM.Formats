@@ -6,10 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace RFGM.Archiver.Commandline;
 
-public class AppTest : Command
+public class Diagnostics : Command
 {
     private readonly Argument<List<string>> inputArg = new("input", "test input"){
-        Arity = ArgumentArity.OneOrMore
+        Arity = ArgumentArity.ZeroOrMore
     };
 
     private readonly Option<int> parallelArg = new([
@@ -24,7 +24,7 @@ public class AppTest : Command
 
     public override string? Description => @"Run test logic for debugging";
 
-    public AppTest() : base(nameof(AppTest).ToLowerInvariant())
+    public Diagnostics() : base(nameof(Diagnostics).ToLowerInvariant())
     {
         IsHidden = true;
         AddArgument(inputArg);
@@ -37,6 +37,6 @@ public class AppTest : Command
         var input = context.ParseResult.GetValueForArgument(inputArg);
         var parallel = context.ParseResult.GetValueForOption(parallelArg);
         var archiver = context.GetHost().Services.GetRequiredService<Services.Archiver>();
-        return (int) await archiver.CommandTest(input, parallel, token);
+        return (int) await archiver.CommandDiagnostics(input, parallel, token);
     }
 }

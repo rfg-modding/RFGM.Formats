@@ -9,6 +9,7 @@ using NLog;
 using RFGM.Archiver.Commandline;
 using RFGM.Archiver.Services;
 using RFGM.Archiver.Services.Handlers;
+using RFGM.Formats.Asm;
 using RFGM.Formats.Localization;
 using RFGM.Formats.Peg;
 using RFGM.Formats.Vpp;
@@ -28,6 +29,11 @@ public class Program
         var root = new AppRootCommand();
         var runner = new CommandLineBuilder(root)
             .UseHost(_ => new HostBuilder(), builder => builder
+                .UseDefaultServiceProvider(options =>
+                {
+                    options.ValidateScopes = true;
+                    options.ValidateOnBuild = true;
+                })
                 .UseConsoleLifetime()
                 .ConfigureServices(services => services.AddLogging(loggingBuilder => ArchiverUtils.SetupLogs(loggingBuilder, consoleLogLevel)))
                 .ConfigureServices(ConfigureServices)
@@ -56,17 +62,24 @@ public class Program
     {
         services.AddTransient<IVppArchiver, VppArchiver>();
         services.AddTransient<IPegArchiver, PegArchiver>();
+        services.AddTransient<AsmReader>();
 
         services.AddSingleton<IFileSystem, FileSystem>();
         services.AddSingleton<Services.Archiver>();
         services.AddSingleton<ArchiverState>();
-        services.AddSingleton<MetadataWriter>();
+
         services.AddSingleton<ImageConverter>();
         services.AddSingleton<Worker>();
         services.AddSingleton<Rick>();
+        services.AddSingleton<AsmFileLocator>();
+
         services.AddSingleton<FileManager>();
         services.AddSingleton<LocatextReader>();
 
+        services.AddDbContext<ArchiverContext>();
+        services.AddScoped<MetadataWriter>();
+        services.AddScoped<ArchiverDiagnostics>();
+        services.AddScoped<AsmUpdater>();
         services.Scan(selector =>
         {
             selector.FromAssemblyOf<Program>()

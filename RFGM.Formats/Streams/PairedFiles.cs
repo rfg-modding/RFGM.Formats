@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.IO.Abstractions;
 
 namespace RFGM.Formats.Streams;
@@ -28,48 +29,40 @@ public record PairedFiles(IFileInfo Cpu, IFileInfo Gpu, string Name)
     /// <summary>
     /// Works for full and relative filenames
     /// </summary>
-    public static string? GetCpuFileName(string fileName)
-    {
-        var extWithDot = FormatUtils.GetLastExtension(fileName).ToLowerInvariant();
-        if (string.IsNullOrEmpty(extWithDot))
-        {
-            return null;
-        }
-        var ext = extWithDot[1..];
-        var cpuExt = ext switch
-        {
-            "cpeg_pc" => "cpeg_pc",
-            "gpeg_pc" => "cpeg_pc",
-            "cvbm_pc" => "cvbm_pc",
-            "gvbm_pc" => "cvbm_pc",
-            _ => null
-        };
-        return cpuExt is null
-            ? null
-            : Path.ChangeExtension(fileName, cpuExt);
-    }
+    public static string? GetCpuFileName(string fileName) => RebuildExtension(fileName, "c");
 
     /// <summary>
     /// Works for full and relative filenames
     /// </summary>
-    public static string? GetGpuFileName(string fileName)
+    public static string? GetGpuFileName(string fileName) => RebuildExtension(fileName, "g");
+
+    private static string? RebuildExtension(string fileName, string prefix)
     {
         var extWithDot = FormatUtils.GetLastExtension(fileName).ToLowerInvariant();
         if (string.IsNullOrEmpty(extWithDot))
         {
             return null;
         }
-        var ext = extWithDot[1..];
-        var gpuExt = ext switch
-        {
-            "cpeg_pc" => "gpeg_pc",
-            "gpeg_pc" => "gpeg_pc",
-            "cvbm_pc" => "gvbm_pc",
-            "gvbm_pc" => "gvbm_pc",
-            _ => null
-        };
-        return gpuExt is null
-            ? null
-            : Path.ChangeExtension(fileName, gpuExt);
+        var ext = extWithDot[2..];
+        return KnownPairExt.Contains(ext)
+            ? Path.ChangeExtension(fileName, $"{prefix}{ext}")
+            : null;
     }
+
+    /// <summary>
+    /// Pair extensions without c/g prefix
+    /// </summary>
+    private static readonly ImmutableHashSet<string> KnownPairExt = new HashSet<string>
+    {
+        "efct_pc",
+        "chk_pc",
+        "stch_pc",
+        "smesh_pc",
+        "vbm_pc",
+        "peg_pc",
+        "cmesh_pc",
+        "car_pc",
+        "terrain_pc",
+        "tmesh_pc",
+    }.ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
 }

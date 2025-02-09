@@ -25,7 +25,7 @@ public class TextureDescriptor : FormatDescriptorBase
     /// </summary>
     protected override string GetDecodeNameInternal(EntryInfo data, bool encodeProperties)
     {
-        var (name, originalExt) = FormatUtils.GetNameAndFullExt(data.Name);
+        var (name, originalExt) = FormatUtils.GetNameAndLastExt(data.Name);
         if (!Extension.Equals(originalExt, StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException($"{Name}: Invalid extension [{originalExt}]");
@@ -42,7 +42,7 @@ public class TextureDescriptor : FormatDescriptorBase
     protected override EntryInfo FromFileSystemInternal(IFileSystemInfo fileSystemInfo)
     {
         var result = base.FromFileSystemInternal(fileSystemInfo);
-        var (_, ext) = FormatUtils.GetNameAndFullExt(fileSystemInfo.Name);
+        var (_, ext) = FormatUtils.GetNameAndLastExt(fileSystemInfo.Name);
         var imgFmt = Enum.Parse<ImageFormat>(ext[1..]);
         result.Properties.ImgFmt = imgFmt;
         return result;

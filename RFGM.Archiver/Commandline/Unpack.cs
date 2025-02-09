@@ -107,7 +107,7 @@ public class Unpack : Command
         ],
         "Do not write container files when unpacking, with -r will unpack all regular files without wasting space");
 
-    public override string? Description => @"Extract files and containers
+    public override string? Description => @"Extract files from containers, decode supported formats
 NOTES:
     * it is generally safe to pack data which was unpacked with default settings
     * preserve file and directory names, they contain properties required to pack them

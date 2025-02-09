@@ -32,17 +32,16 @@ public static class ArchiverUtils
  ╔════════════════╤══════════════════════════════════════════════╗
  ║ BASIC USAGE    ╪ drag&drop files on the .exe to unpack/pack   ║
  ║ advanced       ╪ use commandline for more features            ║
- ╟──────────────────────── Pack Examples ────────────────────────╢
+ ╟────────────────┴─────── Pack Examples ────────────────────────╢
  ║ modfolder.vpp_pc/  +  archiver.exe  =  .pack/modfolder.vpp_pc ║
  ║ textures.cpeg_pc/  +  archiver.exe  =  .pack/textures.cpeg_pc ║
  ╟─────────────────────── Unpack Examples ───────────────────────╢
  ║ items.vpp_pc  +  archiver.exe  =  .unpack/items.vpp_pc/.....  ║
  ║ test.cpeg_pc  +  archiver.exe  =  .unpack/test.cpeg_pc/*.png  ║
- ╟────────────────┴──────────────────────────────────────────────╢
+ ╟───────────────────────────────────────────────────────────────╢
  ║ Help, feedback, bugreport: join Red Faction Community Discord ║
  ║ https://discord.gg/factionfiles - see #rfg-modding channel    ║
  ╚═══════════════════════════════════════════════════════════════╝
-
 Supported formats
 Unpack: {string.Join(" ", FormatDescriptors.UnpackExt)}
 Pack:   {string.Join(" ", FormatDescriptors.PackExt)}
@@ -120,6 +119,7 @@ Encode: {string.Join(" ", FormatDescriptors.EncodeExt)}
         var filterRule = new LoggingRule("*", NLog.LogLevel.Trace, NLog.LogLevel.Off, new NullTarget());
         filterRule.Filters.Add(new ConditionBasedFilter {Action = FilterResult.IgnoreFinal, Condition = "'${logger}' == 'Microsoft.Hosting.Lifetime'"});
         filterRule.Filters.Add(new ConditionBasedFilter {Action = FilterResult.IgnoreFinal, Condition = "'${logger}' == 'Microsoft.Extensions.Hosting.Internal.Host'"});
+        filterRule.Filters.Add(new ConditionBasedFilter {Action = FilterResult.IgnoreFinal, Condition = "starts-with('${logger}', 'Microsoft.EntityFrameworkCore') and '${level}' < LogLevel.Warn"});
         config.AddRule(filterRule);
         config.AddRule(rule1);
         config.AddRule(rule2);
@@ -136,7 +136,7 @@ Encode: {string.Join(" ", FormatDescriptors.EncodeExt)}
         }
         catch (Exception e)
         {
-            var logPath = Path.Combine(Environment.CurrentDirectory, ".rfgm.archiver.log");
+            var logPath = Path.Combine(AppContext.BaseDirectory, ".rfgm.archiver.log");
             log.LogTrace(e, "Command failed");
             log.LogCritical("Command failed!\n\t{message}\n\tCheck log for details:\n\t{logPath}", e.Message, logPath);
             context.ExitCode = (int)ExitCode.UnhandledException;

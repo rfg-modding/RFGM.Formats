@@ -1,7 +1,10 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO.Abstractions;
 using ICSharpCode.SharpZipLib;
 using Kaitai;
+using RFGM.Formats.Abstractions;
+using RFGM.Formats.Abstractions.Descriptors;
 using RFGM.Formats.Vpp.Models;
 
 namespace RFGM.Formats.Vpp;
@@ -15,7 +18,17 @@ public class VppReader(OptimizeFor profile)
         var vpp = new RfgVpp(s);
         var originalMode = vpp.Header.Flags.Mode;
         var data = ReadData(vpp, token);
-        return new LogicalArchive(data, originalMode, name);
+        return new LogicalArchive(data, originalMode, name, vpp.BlockOffset, vpp.Header.LenCompressedData);
+    }
+
+    /// <summary>
+    /// CAREFUL: file stream is not explicitly closed
+    /// </summary>
+    public LogicalArchive ReadFile(IFileInfo file, CancellationToken token)
+    {
+        var entryInfo = FormatDescriptors.RegularFile.ReadEntryForEncoding(file);
+        var f = file.OpenRead();
+        return Read(f, entryInfo.Name, token);
     }
 
     private IEnumerable<LogicalFile> ReadData(RfgVpp vpp, CancellationToken token)
