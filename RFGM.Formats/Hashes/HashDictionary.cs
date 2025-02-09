@@ -861,6 +861,7 @@ public class HashDictionary
         "Skin_Specular_Gloss",
         "Layer_strengths",
         "Scale",
+        "Skybox_position",
         "skybox_position",
         "TOD_Light_Color_Front",
         "TOD_Light_Color_Rear",
@@ -2103,5 +2104,22 @@ public class HashDictionary
         "weapon_heat_percent", "effect_percent", "particle_load", "glass_scale_x", "glass_scale_y", 
         
         "rfg-vfx", "rfg-vfx_s", "rfg-vfx-default", "rfg-vfx-default_s", "default", "g_forcefield_01", "forcefield", "rfg-vfx-forcefield_01", "rfg-vfx-forcefield", "plane", "plane01",
+        
+        //Shader techniques
+        "Base Technique", "Diffraction Technique", "point", "billboard", "box 4x4", "box 4x4 filtered", "box 4x4 masked", "Separated Gaussian", "Simple", "line", "Camera based",
+        "Radial", "compute_luminance_stage_0", "compute_luminance_stage_1", "compute_luminance_adaptive", "brightpass_filter", "brightpass_filter_alternate",
+        "brightpass_filter_alternate2", "bloom_composite", "bloom_composite_3", "composite_tonemapped_bloom", "composite_bloom_after_tonemapping", "composite_no_tonemapping",
+        "composite_tonemapping_no_bloom", "composite_debug", "compute_particle_fog", "light_shafts_render", "light_shafts_mask", "Base_parametric", "Soft", "Soft_parametric",
+        "Base", "Visibility",
+        
+        //Other shader related strings
+        "Sampling_offsets", "base_sampler", "mask_sampler", "Separated_axis", "Meteor_strength", "Adapt_time", "HDR_level", "Luminance_conversion",
+        "Luminance_min", "Luminance_max", "Luminance_mask_max", "Brightpass_threshold", "Brightpass_offset", "Use_hdr_level", "Eye_adaption_base", "Eye_adaption_amount",
+        "Eye_fade_min", "Eye_fade_max", "Bloom_amount", "Bloom_curve_values", "Lum_range", "Lum_offset", "Debug_bloom_buffer", "Debug_lummap", "Debug_avg_lum",
+        "sun_sampler", "Particle_brightpass_sampler", "Particle_sampler", "lum_adapt_sampler", "bloom_stage_0_sampler", "bloom_stage_1_sampler", "bloom_stage_2_sampler",
+        "bloom_stage_3_sampler", "bloom_stage_4_sampler", "Light_shafts_brightpass_sampler", "Star_strength", "Draw_distance", "orbital_map", "orbital_tint", "MP_rim_color",
+        "Near_clip_params", "Focal_params", "Depth_sampling_offsets", "Override_blur_percent", "bracketQuery", "Mem_offset", "Mem_base", "Mem_value", "Y_Map", "Cb_Map", "Cr_Map",
+        "Star_diffuse", "sun_sampler", "Outline_sampler", "backbuffer_sampler", "Fog_of_war_mask", "Fog_texture", "Building_alpha_map", "Building_texture", 
+        "corona", "oriented", "ribbon", "drop"
     ];
 }
