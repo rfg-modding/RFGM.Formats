@@ -34,7 +34,7 @@ The table below lists each format used by RFG and how much this library supports
 | Shader                     | .fxo_kg                | ❌     | ❌     |
 | Steam localization strings | .le_strings            | ❌     | ❌     |
 | Localization strings       | .rfglocatext           | ✔️️   | ✔️    |
-| Render material            | .mat_pc                | ❌     | ❌     |
+| Render material            | .mat_pc                | ❔     | ❌     |
 | Animation Morph            | .morph_pc              | ❌     | ❌     |
 | UI                         | .vint_doc              | ❌     | ❌     |
 | Cloth sim                  | .sim_pc                | ❌     | ❌     |
