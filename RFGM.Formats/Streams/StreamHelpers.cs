@@ -591,6 +591,32 @@ namespace RFGM.Formats.Streams
 
             return strings;
         }
+        
+        //Used to match up the texture name string to with a TextureDesc on rfg materials
+        public static List<(string, long)> ReadSizedStringListWithOffsets(this Stream stream, long sizeBytes)
+        {
+            List<(string, long)> strings = new();
+            if (sizeBytes < 0)
+                return strings;
+            
+            long startPos = stream.Position;
+            while (stream.Position - startPos < sizeBytes)
+            {
+                long stringOffset = stream.Position - startPos;
+                strings.Add((stream.ReadAsciiNullTerminatedString(), stringOffset));
+
+                //Skip extra null terminators that are sometimes present in these lists in RFG formats
+                while (stream.Position - startPos < sizeBytes)
+                {
+                    if (stream.Peek<char>() == '\0')
+                        stream.Skip(1);
+                    else
+                        break;
+                }
+            }
+            
+            return strings;
+        }
 
         public static T Peek<T>(this Stream stream) where T : unmanaged
         {

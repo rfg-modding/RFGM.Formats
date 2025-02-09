@@ -8,14 +8,14 @@ namespace RFGM.Formats.Meshes;
 //Chunk mesh. Buildings and other destructible objects are stored in this format. Extension = cchk_pc|gchk_pc
 public class ChunkFile(string name)
 {
-    public string Name = name;
+    public string Name { get; private set; }= name;
     public bool LoadedCpuFile { get; private set; } = false;
 
     public ChunkFileHeader Header;
 
     public MeshConfig Config = new();
-    public List<string> Textures = new();
-    List<RfgMaterial> Materials = new();
+    public List<(string, long)> Textures = new();
+    public List<RfgMaterial> Materials = new();
     public List<GeneralObject> GeneralObjects = new();
     public List<Destroyable> Destroyables = new();
     public List<ScriptPoint> ScriptPoints = new();
@@ -55,8 +55,9 @@ public class ChunkFile(string name)
         //Read texture names
         cpuFile.AlignRead(16);
         uint textureNamesBlockSize = cpuFile.ReadUInt32();
-        Textures = cpuFile.ReadSizedStringList(textureNamesBlockSize);
-
+        long textureNamesStart = cpuFile.Position;
+        Textures = cpuFile.ReadSizedStringListWithOffsets(textureNamesBlockSize);
+        
         cpuFile.AlignRead(16);
         uint materialMapOffsetData = cpuFile.ReadUInt32(); //Likely only set to a valid value at runtime
         uint numMaterials = cpuFile.ReadUInt32();
@@ -70,15 +71,30 @@ public class ChunkFile(string name)
             for (int i = 0; i < numMaterials; i++)
             {
                 cpuFile.AlignRead(16);
-                //TODO: Make sure we're not skipping any important data by doing this
-                //cpuFile.Seek(MaterialOffsets[i], SeekOrigin.Begin);
-
                 RfgMaterial material = new();
                 material.Read(cpuFile);
                 Materials.Add(material);
             }
         }
         cpuFile.AlignRead(64);
+        
+        //TODO: Apply this change to the other mesh types and read all the instances to make sure it works correctly
+        //TODO: Do same checks on materialMapIndex and TextureDesc.Name that we're doing on the chunk files
+        //Set texture names on the TextureDesc objects based on their offsets
+        foreach ((string textureName, long offset) in Textures)
+        {
+            foreach (RfgMaterial material in Materials)
+            {
+                for (var i = 0; i < material.Textures.Count; i++)
+                {
+                    TextureDesc textureDesc = material.Textures[i];
+                    if (textureDesc.NameOffset == offset)
+                    {
+                        material.Textures[i] = textureDesc with { Name = textureName };
+                    }
+                }
+            }
+        }
         
         if (Header.NumGeneralObjects > 0)
         {
@@ -102,8 +118,7 @@ public class ChunkFile(string name)
         //Skip to destroyables. Haven't fully reversed the format yet
         cpuFile.Seek(Header.DestructionOffset, SeekOrigin.Begin);
         cpuFile.AlignRead(128);
-
-        //TODO: Remove once this BS is figured out
+        
         long destroyablesStartPos = cpuFile.Position;
         byte[] destroyablesData = new byte[Header.DestructionDataSize];
         cpuFile.ReadExactly(destroyablesData);
@@ -161,7 +176,6 @@ public class ChunkFile(string name)
             }
             cpuFile.AlignRead(4);
 
-            //TODO: Port this to plain safe C#. Maybe keep it temporarily and run it on every file + check if this func + the rewrite have the same resulting file offset
             //Read rbb node tree
             ReadRbbNodesFromByteArray(destroyablesData, destroyablesStartPos, cpuFile.Position, out long newStreamPos, out destroyable.RbbNodes);
             cpuFile.Position = newStreamPos;
@@ -170,7 +184,7 @@ public class ChunkFile(string name)
             destroyable.InstanceData.Read(cpuFile);
             cpuFile.AlignRead(16);
 
-            //TODO: Save this data on the destroyable
+            //TODO: Save this data on the destroyable object
             uint maybeTransformBufferSize = cpuFile.Peek<uint>(); //Includes the size of this uint
             byte[] maybeTransformBuffer = new byte[maybeTransformBufferSize];
             cpuFile.ReadExactly(maybeTransformBuffer);
@@ -255,84 +269,62 @@ public class ChunkFile(string name)
         LoadedCpuFile = true;
     }
 
-    //C# reconstruction of the confusing rfg_rbb_read_nodes() function from rfg.exe. Used to help figure out how it works
-    //This is temporary until its rewritten in safe C#
     private unsafe void ReadRbbNodesFromByteArray(byte[] destroyablesData, long destroyablesStartPos, long initialStreamPos, out long newStreamPos, out List<RbbNode> rbbNodes)
     {
-        //TODO: Add code to convert from rfg_rbb_node to rbbNodes, read the node data list, and add to rbbNodes
-        rbbNodes = new List<RbbNode>();
-        int offset = (int)(initialStreamPos - destroyablesStartPos);
-        GCHandle handle = GCHandle.Alloc(destroyablesData, GCHandleType.Pinned);
-
-        fixed (byte* data = destroyablesData)
+        GCHandle? handle = null;
+        try
         {
-            rfg_rbb_node* node = (rfg_rbb_node*)(data + offset);
-            offset += 20;
-            rfg_rbb_read_nodes(node, data, &offset);
-        }
+            //TODO: Add code to fill rbbNodes list
+            //TODO: Add code to read the data that lies between/after some nodes
+            //TODO: ^^Figure out what that data is.
+            //TODO: Rewrite this code in safe C# in a way similar to the rest of the file format code (using streams)
+            handle = GCHandle.Alloc(destroyablesData, GCHandleType.Pinned);
+            rbbNodes = new List<RbbNode>();
+            int streamDistanceFromDestroyableStart = (int)(initialStreamPos - destroyablesStartPos);
 
-        newStreamPos = destroyablesStartPos + offset;
-        handle.Free();
-    }
-
-    //TODO: Remove these temporary types once rbb node code is rewritten. These are temporarily here just to do pointer math exactly like the game
-    private struct fp_aabb
-    {
-        public short min_x;
-        public short min_y;
-        public short min_z;
-        public short max_x;
-        public short max_y;
-        public short max_z;
-    }
-
-    private struct et_ptr_offset<T> where T : unmanaged
-    {
-        public int m_offset;
-    }
-
-    private struct rfg_rbb_node()
-    {
-        public int num_objects = 0;
-
-        public fp_aabb aabb = new();
-
-        //public uint NodeDataOffset = 0; //et_ptr_offset<unsigned char, 0> node_data;
-        public et_ptr_offset<byte> node_data;
-    }
-
-    //TODO: Figure out what the hell this is doing and convert it to safe C#
-    private unsafe void rfg_rbb_read_nodes(rfg_rbb_node* node, byte* data, int* offset)
-    {
-        rfg_rbb_node* node_1 = node;
-        int num_objects = node_1->num_objects;
-        bool condition = (num_objects != 0);
-
-        if (num_objects >= 0)
-        {
-            while (!condition)
+            fixed (byte* data = destroyablesData)
             {
-                //node_1->node_data.m_offset = *(uint*)((long)offset - (long)&node_1->node_data + (long)data);
-                node_1->node_data.m_offset = (int)(*offset - (long)&node_1->node_data + (long)data);
-                *offset += 40;
-
-                rfg_rbb_read_nodes((rfg_rbb_node*)(node_1->node_data.m_offset + (byte*)&node_1->node_data), data, offset);
-                int m_offset = node_1->node_data.m_offset;
-
-                int nextNodeNumObjects = *(int*)(((byte*)&node_1->node_data) + m_offset + 20);
-
-                node_1 = (rfg_rbb_node*)(((byte*)&node_1->node_data) + m_offset + 20);
-                condition = (nextNodeNumObjects != 0);
-
-                if (nextNodeNumObjects < 0)
-                    return;
+                RbbNode* node = (RbbNode*)(data + streamDistanceFromDestroyableStart);
+                streamDistanceFromDestroyableStart += 20;
+                ReadRbbNodesRecursive(node, data, &streamDistanceFromDestroyableStart);
             }
 
-            node_1->node_data.m_offset = (int)(*offset - (long)&node_1->node_data + (long)data);
-            *offset += node_1->num_objects * 4;
+            newStreamPos = destroyablesStartPos + streamDistanceFromDestroyableStart;
+        }
+        finally
+        {
+            if (handle is { IsAllocated: true })
+            {
+                handle.Value.Free();
+            }
         }
     }
 
+    private unsafe void ReadRbbNodesRecursive(RbbNode* node, byte* destroyableStart, int* streamDistanceFromDestroyableStart)
+    {
+        if (node->NumObjects < 0)
+            return;
+        
+        while (node->NumObjects == 0)
+        {
+            int offsetFieldDistanceFromDestroyableStart = (int)((long)destroyableStart - (long)&node->NodeDataOffset);
+            node->NodeDataOffset = offsetFieldDistanceFromDestroyableStart + *streamDistanceFromDestroyableStart;
+            *streamDistanceFromDestroyableStart += 40;
+
+            RbbNode* childNode = (RbbNode*)((byte*)&node->NodeDataOffset + node->NodeDataOffset);
+            ReadRbbNodesRecursive(childNode, destroyableStart, streamDistanceFromDestroyableStart);
+
+            RbbNode* nextNode = (RbbNode*)((byte*)&node->NodeDataOffset + node->NodeDataOffset + 20);
+            if (nextNode->NumObjects < 0)
+                return;
+
+            node = nextNode;
+        }
+
+        node->NodeDataOffset = (int)((long)destroyableStart - (long)&node->NodeDataOffset) + *streamDistanceFromDestroyableStart;
+        *streamDistanceFromDestroyableStart += node->NumObjects * 4; //Seek past object data which follows some nodes
+    }
+    
     private bool SkipHavokData(Stream stream)
     {
         long startPos = stream.Position;
