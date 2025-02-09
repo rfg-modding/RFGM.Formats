@@ -9,9 +9,16 @@ public struct DestroyableInstanceData
     public uint DlodsOffset;
     public uint DataSize;
     public uint BufferOffset; //et_ptr_offset<unsigned char, 0> buffer;
+
+    public byte[] Data = [];
     
     private const long SizeInFile = 20;
 
+    public DestroyableInstanceData()
+    {
+        
+    }
+    
     public void Read(Stream stream)
     {
 #if DEBUG
@@ -32,5 +39,11 @@ public struct DestroyableInstanceData
             throw new Exception($"Invalid size for DestroyableInstanceData. Expected {SizeInFile} bytes, read {bytesRead} bytes");
         }
 #endif
+
+        if (DataSize > 0)
+        {
+            Data = new byte[DataSize];
+            stream.ReadExactly(Data);
+        }
     }
 }

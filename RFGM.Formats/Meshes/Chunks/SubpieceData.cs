@@ -1,3 +1,4 @@
+using RFGM.Formats.Hashes;
 using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Meshes.Chunks;
@@ -7,7 +8,9 @@ public struct SubpieceData
     public uint ShapeOffset; //havok shape offset
     public ushort CollisionModel;
     public ushort RenderSubpiece;
-    public uint Unknown0;
+    public uint PhysicalMaterialNameChecksum;
+    
+    public string PhysicalMaterialName => HashDictionary.FindOriginString(PhysicalMaterialNameChecksum) ?? "Unknown";
     
     private const long SizeInFile = 12;
 
@@ -20,7 +23,7 @@ public struct SubpieceData
         ShapeOffset = stream.ReadUInt32();
         CollisionModel = stream.ReadUInt16();
         RenderSubpiece = stream.ReadUInt16();
-        Unknown0 = stream.ReadUInt32();
+        PhysicalMaterialNameChecksum = stream.ReadUInt32();
         
 #if DEBUG
         var endPos = stream.Position;

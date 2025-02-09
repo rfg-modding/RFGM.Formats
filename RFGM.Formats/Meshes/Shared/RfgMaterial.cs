@@ -20,6 +20,7 @@ public class RfgMaterial
     public List<MaterialConstant> Constants = new();
 
     public string Name => HashDictionary.FindOriginString(NameChecksum) ?? "Unknown";
+    public string ShaderName => HashDictionary.FindOriginString(ShaderHandle) ?? "Unknown";
     public IEnumerable<string> ConstantNames => ConstantNameChecksums.Select(hash => HashDictionary.FindOriginString(hash) ?? "Unknown");
 
     public void Read(Stream stream)
