@@ -8,7 +8,7 @@ public class RfgMaterial
 {
     public uint ShaderHandle;
     public uint NameChecksum;
-    public uint MaterialFlags;
+    public RfgMaterialFlags MaterialFlags;
     public ushort NumTextures;
     public byte NumConstants;
     public byte MaxConstants;
@@ -31,7 +31,7 @@ public class RfgMaterial
         
         ShaderHandle = stream.ReadUInt32();
         NameChecksum = stream.ReadUInt32();
-        MaterialFlags = stream.ReadUInt32();
+        MaterialFlags = (RfgMaterialFlags)stream.ReadUInt32();
         NumTextures = stream.ReadUInt16();
         NumConstants = stream.ReadUInt8();
         MaxConstants = stream.ReadUInt8();
