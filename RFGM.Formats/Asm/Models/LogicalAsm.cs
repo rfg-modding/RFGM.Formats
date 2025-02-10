@@ -1,9 +1,11 @@
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace RFGM.Formats.Asm.Models;
 
 public record LogicalAsm(
     IReadOnlyList<LogicalContainer> Containers,
+    [property: JsonIgnore]
     string Name
 )
 {

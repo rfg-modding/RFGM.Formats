@@ -24,17 +24,30 @@ public class ArchiverDiagnostics(Worker worker, ArchiverState archiverState, Asm
 
     public async Task UpdateAllAsms(IDirectoryInfo rfgDataDir, int parallel, CancellationToken token)
     {
-        await context.RebuildTable(context.PrimitiveIndex, token);
-        await context.RebuildTable(context.FileIndex, token);
         var vppFiles = rfgDataDir.EnumerateFiles().Where(x => x.Extension.Equals(".vpp_pc", StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.Name).ToList();
         var messages = vppFiles.Select(x => new UpdateAsmMessage(x, rfgDataDir));
         await worker.Start(messages, parallel, false, token);
+        await UpdateDbIndex(token);
+    }
+
+    private async Task UpdateDbIndex(CancellationToken token)
+    {
+        log.LogDebug("Drop PrimitiveIndex table");
+        await context.RebuildTable(context.PrimitiveIndex, token);
+        log.LogDebug("Drop FileIndex table");
+        await context.RebuildTable(context.FileIndex, token);
+        log.LogDebug("Drop AsmUpdates table");
+        await context.RebuildTable(context.AsmUpdates, token);
+
         await context.PrimitiveIndex.AddRangeAsync(archiverState.PrimitiveIndex, token);
         await context.SaveChangesAsync(token);
         log.LogDebug("Saved PrimitiveIndex table");
         await context.FileIndex.AddRangeAsync(archiverState.FileIndex, token);
         await context.SaveChangesAsync(token);
         log.LogDebug("Saved FileIndex table");
+        await context.AsmUpdates.AddRangeAsync(archiverState.AsmUpdates, token);
+        await context.SaveChangesAsync(token);
+        log.LogDebug("Saved AsmUpdates table");
     }
 
     public async Task LocateFilesForAllPrimitives(IDirectoryInfo rfgDataDir, int parallel, CancellationToken token)

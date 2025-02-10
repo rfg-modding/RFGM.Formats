@@ -17,6 +17,7 @@ public class ArchiverContext(ILogger<ArchiverContext> log, ILoggerFactory logger
     public DbSet<PrimitiveLocation> PrimitiveLocations { get; set; }
     public DbSet<DbPrimitive> PrimitiveIndex { get; set; }
     public DbSet<DbFile> FileIndex { get; set; }
+    public DbSet<DbAsmUpdate> AsmUpdates { get; set; }
 
 
     public string DbPath { get; } = Path.Combine(AppContext.BaseDirectory, ".rfgm.db");

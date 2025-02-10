@@ -184,6 +184,11 @@ public static class FormatUtils
         },
     };
 
+    public static readonly JsonSerializerOptions UserFriendlyJsonOptions = new(JsonOptions)
+    {
+        WriteIndented = true
+    };
+
     /// <summary>
     /// Wrapper around int to be readable from JSON string. required to survive broken json used for property serialization
     /// </summary>

@@ -15,6 +15,21 @@ public class ArchiverState(IFileSystem fileSystem)
 
     private readonly ConcurrentBag<string> destinations = new();
 
+    public readonly List<DbAsmUpdate> AsmUpdates = new();
+
+    public void StoreUpdate(string vpp, string itemId, string msg)
+    {
+        lock (Locker)
+        {
+            AsmUpdates.Add(new DbAsmUpdate()
+            {
+                Vpp = vpp,
+                ItemId = itemId,
+                Message = msg
+            });
+        }
+    }
+
     public void StoreMetadata(Metadata value) => metadata.Add(value);
 
     public void RememberDestination(string value) => destinations.Add(value);
@@ -30,4 +45,6 @@ public class ArchiverState(IFileSystem fileSystem)
             .OrderBy(x => x.FullName, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private static readonly object Locker = new object();
 }
