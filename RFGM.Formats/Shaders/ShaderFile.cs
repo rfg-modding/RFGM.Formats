@@ -3,7 +3,7 @@ using RFGM.Formats.Streams;
 namespace RFGM.Formats.Shaders;
 
 //For .fxo_kg files. These have some RFG specific data with DirectX11 shader bytecode appended onto them.
-public class ShaderFile
+public class ShaderFile(string filename)
 {
     //Note: Size of initial header data is 52 bytes
     public uint Signature;
@@ -26,9 +26,10 @@ public class ShaderFile
     public int ShaderTechniquesOffset;
     public int NumTechniques;
 
-    public string Filename = string.Empty;
+    public string Filename => filename;
     public bool LoadedCpuFile { get; private set; }
 
+    public ShaderType Type { get; private set; }
     public List<TexFixup> TexFixups = new();
     public List<ConstFixup> ConstFixups = new();
     public List<ConstFixup> BoolFixups = new();
@@ -40,6 +41,8 @@ public class ShaderFile
     
     public void Read(Stream stream)
     {
+        Type = ShaderFile.GetTypeFromFilename(Filename);
+        
         Signature = stream.ReadUInt32();
         if (Signature != 1262658030)
             throw new Exception($"Unexpected .fxo_kg file signature. Expected 1262658030, found {Signature}");
@@ -70,7 +73,7 @@ public class ShaderFile
         {
             throw new Exception($"Incorrect fxo_kg file header end offset. Expected 52, ended up at {stream.Position}. Make sure the stream is the start of the file before calling ShaderFile.Read()");
         }
-
+        
         //TODO: There's still many tex fixups, const fixups, and technique names that we don't know. Figure them out
         for (int i = 0; i < NumTexFixups; i++)
         {
@@ -145,5 +148,35 @@ public class ShaderFile
         }
 
         LoadedCpuFile = true;
+    }
+
+    public static ShaderType GetTypeFromFilename(string filename)
+    {
+        string filenameNoExt = Path.GetFileNameWithoutExtension(filename);
+        
+        if (filenameNoExt.EndsWith("_s"))
+            return ShaderType.Standard;
+        if (filenameNoExt.EndsWith("_bs"))
+            return ShaderType.Standard;
+        if (filenameNoExt.EndsWith("_ms"))
+            return ShaderType.Standard;
+        if (filenameNoExt.EndsWith("_bms"))
+            return ShaderType.Standard;
+        
+        if (filenameNoExt.EndsWith("_c"))
+            return ShaderType.Character;
+        if (filenameNoExt.EndsWith("_mc"))
+            return ShaderType.Character;
+        if (filenameNoExt.EndsWith("_bc"))
+            return ShaderType.Character;
+        if (filenameNoExt.EndsWith("_bmc"))
+            return ShaderType.Character;
+        
+        if (filenameNoExt.EndsWith("_t"))
+            return ShaderType.Terrain;
+        if (filenameNoExt.EndsWith("_ts"))
+            return ShaderType.Terrain;
+        
+        return ShaderType.Generic;
     }
 }

@@ -7,10 +7,10 @@ public struct ShaderTechnique
 {
     public short VertexShaderIndex;
     public short PixelShaderIndex;
-    public uint TechniqueNameIndex;
+    public uint TechniqueNameHash;
     public uint Flags;
 
-    public string TechniqueName => HashDictionary.FindOriginString(TechniqueNameIndex) ?? "Unknown";
+    public string TechniqueName => HashDictionary.FindOriginString(TechniqueNameHash) ?? "Unknown";
     
     private const long SizeInFile = 12;
     
@@ -22,7 +22,7 @@ public struct ShaderTechnique
 
         VertexShaderIndex = stream.ReadInt16();
         PixelShaderIndex = stream.ReadInt16();
-        TechniqueNameIndex = stream.ReadUInt32();
+        TechniqueNameHash = stream.ReadUInt32();
         Flags = stream.ReadUInt32();
         
 #if DEBUG

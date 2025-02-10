@@ -24,7 +24,7 @@ public class HashDictionary
                 _stringDictionary1[Hash.HashVolitionCRCAlt(str)] = str;
                 _stringDictionary2[Hash.HashVolition(str)] = str;
             }
-            
+
             Initialized = true;
         }
     }
@@ -1102,7 +1102,7 @@ public class HashDictionary
         "Terrain_overlay_map_sampler",
         "Terrain_combine_map_texture",
         "Terrain_overlay_map_texture",
-        
+
         //List of shader files
         "bw-test_decal_c.fxo_kg",
         "bw-test_decal_mc.fxo_kg",
@@ -1836,7 +1836,7 @@ public class HashDictionary
         "ui_fog_of_war_s",
         "ui_map_bldg_s",
         "ui_minimap_s",
-        
+
         //Patched shader names
         "bw-test_decal",
         "bw-test_decal_s",
@@ -2077,41 +2077,42 @@ public class HashDictionary
         "ui_fog_of_war_s",
         "ui_map_bldg_s",
         "ui_minimap_s",
-        
+
         //The hash of this is the vanilla DistrictHash for all the MP and WC maps
         "default",
-        
+
         "POSITION", "NORMAL", "TANGENT", "TEXCOORD", "BLENDWEIGHT", "BLENDINDEX",
-        
+
         //Vanilla physical material names from rfg_materials.xtbl
-        "DEFAULT", "Carbon", "Carbon-EDF", "Cloth", "Composite-Weak", "Composite-Normal", "Composite-Strong", "Concrete-Weak", "Concrete-Normal", "Concrete-Strong", 
-        "Electronics-Weak", "Flesh", "Glass-Weak", "Ice-Normal", "Indestructo", "Plastic-Normal", "Plastic-Weak", "Rubber", "Steel-Weak", "Steel-Normal", "Steel-StrongLight", 
-        "Steel-Strong", "Steel-SuperStrong", "Stone-Normal", "Stone-StrongLight", "Stone-Indestructo", "EOS-Glass", 
-        
+        "DEFAULT", "Carbon", "Carbon-EDF", "Cloth", "Composite-Weak", "Composite-Normal", "Composite-Strong", "Concrete-Weak", "Concrete-Normal", "Concrete-Strong",
+        "Electronics-Weak", "Flesh", "Glass-Weak", "Ice-Normal", "Indestructo", "Plastic-Normal", "Plastic-Weak", "Rubber", "Steel-Weak", "Steel-Normal", "Steel-StrongLight",
+        "Steel-Strong", "Steel-SuperStrong", "Stone-Normal", "Stone-StrongLight", "Stone-Indestructo", "EOS-Glass",
+
         "misc-white.TGA", "flat-normalmap.tga",
-        
+
         //cefct_pc file expression function names
-        "clerp_additive_color_start", "clerp_scale_color_start", "clerp_additive_color_mid_A", "clerp_scale_color_mid_A", "clerp_additive_color_mid_B", "clerp_scale_color_mid_B", 
-        "clerp_additive_color_end", "clerp_scale_color_end", "clerp_opacity_scale", "clerp_opacity_start", "clerp_opacity_mid_A", "clerp_opacity_mid_B", "clerp_opacity_end", 
+        "clerp_additive_color_start", "clerp_scale_color_start", "clerp_additive_color_mid_A", "clerp_scale_color_mid_A", "clerp_additive_color_mid_B", "clerp_scale_color_mid_B",
+        "clerp_additive_color_end", "clerp_scale_color_end", "clerp_opacity_scale", "clerp_opacity_start", "clerp_opacity_mid_A", "clerp_opacity_mid_B", "clerp_opacity_end",
         "clerp_additive_lifetime", "clerp_scale_lifetime", "clerp_additive_speed", "clerp_scale_speed", "clerp_emission_rate", "clerp_emission_rate_scale", "clerp_size_scale",
-        "clerp_additive_size_start", "clerp_scale_size_start", "clerp_additive_size_mida", "clerp_scale_size_mida", "clerp_additive_size_midb", "clerp_scale_size_midb", 
-        "clerp_additive_size_end", "clerp_scale_size_end", "clerp_additive_angular_speed_start", "clerp_scale_angular_speed_start", "clerp_additive_angular_speed_end", 
+        "clerp_additive_size_start", "clerp_scale_size_start", "clerp_additive_size_mida", "clerp_scale_size_mida", "clerp_additive_size_midb", "clerp_scale_size_midb",
+        "clerp_additive_size_end", "clerp_scale_size_end", "clerp_additive_angular_speed_start", "clerp_scale_angular_speed_start", "clerp_additive_angular_speed_end",
         "clerp_scale_angular_speed_end", "clerp_scale", "clerp_scale_x", "clerp_scale_y", "clerp_scale_z", "clerp_weight_start", "clerp_weight_end", "clerp_weight_scale",
         "clerp_texture_anim_rate",
-        
+
         //cefct file expression variable/parameter names
-        "object_speed", "object_size", "random_0_to_1", "wind_speed", "wind_los", "jetpack_fuel_percent", "backpack_color", "backpack_life", "vehicle_smoke_percent", 
-        "weapon_heat_percent", "effect_percent", "particle_load", "glass_scale_x", "glass_scale_y", 
-        
-        "rfg-vfx", "rfg-vfx_s", "rfg-vfx-default", "rfg-vfx-default_s", "default", "g_forcefield_01", "forcefield", "rfg-vfx-forcefield_01", "rfg-vfx-forcefield", "plane", "plane01",
-        
+        "object_speed", "object_size", "random_0_to_1", "wind_speed", "wind_los", "jetpack_fuel_percent", "backpack_color", "backpack_life", "vehicle_smoke_percent",
+        "weapon_heat_percent", "effect_percent", "particle_load", "glass_scale_x", "glass_scale_y",
+
+        "rfg-vfx", "rfg-vfx_s", "rfg-vfx-default", "rfg-vfx-default_s", "default", "g_forcefield_01", "forcefield", "rfg-vfx-forcefield_01", "rfg-vfx-forcefield", "plane",
+        "plane01",
+
         //Shader techniques
         "Base Technique", "Diffraction Technique", "point", "billboard", "box 4x4", "box 4x4 filtered", "box 4x4 masked", "Separated Gaussian", "Simple", "line", "Camera based",
         "Radial", "compute_luminance_stage_0", "compute_luminance_stage_1", "compute_luminance_adaptive", "brightpass_filter", "brightpass_filter_alternate",
         "brightpass_filter_alternate2", "bloom_composite", "bloom_composite_3", "composite_tonemapped_bloom", "composite_bloom_after_tonemapping", "composite_no_tonemapping",
         "composite_tonemapping_no_bloom", "composite_debug", "compute_particle_fog", "light_shafts_render", "light_shafts_mask", "Base_parametric", "Soft", "Soft_parametric",
-        "Base", "Visibility",
-        
+        "Base", "Visibility", "composite", "unlit", "Lighting technique", "Depth only technique",
+
         //Other shader related strings
         "Sampling_offsets", "base_sampler", "mask_sampler", "Separated_axis", "Meteor_strength", "Adapt_time", "HDR_level", "Luminance_conversion",
         "Luminance_min", "Luminance_max", "Luminance_mask_max", "Brightpass_threshold", "Brightpass_offset", "Use_hdr_level", "Eye_adaption_base", "Eye_adaption_amount",
