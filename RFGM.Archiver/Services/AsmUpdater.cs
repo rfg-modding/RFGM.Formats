@@ -14,18 +14,20 @@ namespace RFGM.Archiver.Services;
 
 public class AsmUpdater(AsmReader asmReader, ArchiverState archiverState, FileManager fileManager, ILogger<AsmUpdater> log)
 {
+    // find .pack -type f | xargs -n2 diff -q
+
     private string? storedVppName;
 
     public async Task Update(IFileSystemInfo vpp, IDirectoryInfo rfgDataDir, CancellationToken token)
     {
-        if (!vpp.Name.Contains("interface.vpp_pc"))
+        if (!vpp.Name.Contains("mp_cornered.vpp_pc"))
         {
             // TODO REMOVE ME
             //return;
         }
 
-        var vppName = FormatDescriptors.RegularFile.ReadEntryForEncoding(vpp).Name;
-        storedVppName = vppName;
+        var updatedVpp = FormatDescriptors.RegularFile.ReadEntryForEncoding(vpp).Name;
+        storedVppName = updatedVpp;
         var current = ReadAllAsmFromVpp(vpp, token);
         var all = await ReadAllAsmFromAllVpp(rfgDataDir, token);
         var forUpdate = GetVppAndAsmForUpdate(current, all).ToList();
@@ -33,13 +35,13 @@ public class AsmUpdater(AsmReader asmReader, ArchiverState archiverState, FileMa
 
         var containers = IndexContainers(forUpdate).ToList();
         var strs = IndexStrs(vpp, rfgDataDir, forUpdate.Select(x => x.Vpp), token).ToList();
-        SaveResults(vppName, containers, strs, token);
+        SaveResults(updatedVpp, containers, strs, token);
 
         var newAsms = new Dictionary<(string, string), IReadOnlyList<Container>>();
         var asmsInVpp = containers.GroupBy(x => x.Vpp).ToList();
         foreach (var x in asmsInVpp)
         {
-            var newContainers = Update(vppName, x, strs, all, token).GroupBy(x => (x.Vpp, x.Asm));
+            var newContainers = UpdateAsm(updatedVpp, x, strs, all, token).GroupBy(x => (x.Vpp, x.Asm));
             foreach (var y in newContainers)
             {
                 newAsms.Add(y.Key, y.ToList());
@@ -64,111 +66,56 @@ public class AsmUpdater(AsmReader asmReader, ArchiverState archiverState, FileMa
                     ).ToList())
                 ).ToList(), asm.Name);
 
-                var origFile = fileManager.CreateFileRecursive(vpp.FileSystem.Path.Join(Constants.DefaultPackDir, vppName, archive, asm.Name + ".bak.json"), true);
+                var origFile = fileManager.CreateFileRecursive(vpp.FileSystem.Path.Join(Constants.DefaultPackDir, updatedVpp, archive, asm.Name + ".bak.json"), true);
                 await using var of = origFile.OpenWrite();
                 await new AsmWriter(asm).WriteJson(of, token);
 
-                var jsonFile = fileManager.CreateFileRecursive(vpp.FileSystem.Path.Join(Constants.DefaultPackDir, vppName, archive, asm.Name + ".upd.json"), true);
+                var jsonFile = fileManager.CreateFileRecursive(vpp.FileSystem.Path.Join(Constants.DefaultPackDir, updatedVpp, archive, asm.Name + ".upd.json"), true);
                 await using var uf = jsonFile.OpenWrite();
                 await new AsmWriter(updAsm).WriteJson(uf, token);
                 StoreUpdate($"{archive}/{asm.Name}", $"Saved updated file: {jsonFile.FullName}");
             }
         }
-
-/*
-find asm container for every str2
-compare offsets, sizes, primitive order, etc
-update if possible
-    primitive size change
-    offset change
-    compressed size change
-    primitive name change?
-    new primitive
-    if moved from elsewhere, just copy all the attributes
-    deleted primitive
-    ask user to intervene eg if new and unknown
-find asm primitive everywhere for every separate file
-    only look in virtual asms
-    look only in certain vpps
-    dont forget files directly in vpp
-output to .pack directory
-
-approach 1
-match primitives to files across allVpps
-because some files are not in changedVpp, they are in other places
-then compare with actual files only in changed vpp
-figure out if file exists in several places but is deleted in changedVpp - is it fine to delete file which exists in other places?
-how to handle new files?
-
-approach 2
-match all files in changedVpp to primitives
-primitives without match: look in allVpps
-delete primitives without match (file was deleted)
-update primitives with different size
-add primitives for new files
-    find similar files in all asms
-    if not found, warn user to fill parameters
-
-
-every str2 maps to a container
-deal with virtual containers separately
-
-
-compare stuff
-
-non-virtual containers
-    list of containers <=> list of str2s
-        * how to compare: fill all asms, then see if any dirty files have no match
-        * name match, c != str2 => compare primitives, update container fields
-        * c == null => new or copied asset, scan index, find closest match or create new, compare primitives, update container fields
-        * str2 == null => delete container
-
-    list of primitives <=> list of files
-        * how to compare: fill all asms, then see if any dirty files have no match
-        * name match, p != f => compare and update fields
-        * p == null => new or copied asset, scan index, find closest match or create new, compare and update fields
-        * f == null => delete primitive
-
-*/
     }
 
-    private void StoreUpdate(string id, string text)
+    private IReadOnlyList<Container> UpdateAsm(string updatedVpp, IGrouping<string, Container> containersInVpp, IReadOnlyList<Str> strs, IReadOnlyList<VppAndAsm> all, CancellationToken token)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storedVppName);
-        archiverState.StoreUpdate(storedVppName, id, text);
-    }
-
-    private IReadOnlyList<Container> Update(string vppName, IGrouping<string, Container> containers, IReadOnlyList<Str> strs, IReadOnlyList<VppAndAsm> all, CancellationToken token)
-    {
-        /*fill non-virtual containers:
-         - only in current vpp: non-virtuals can only reference files in their own vpp
-         - ignore root vpp files: non-virtuals can only reference str2
-         */
-        /* ===========================================================================
-         * TODO work with containers sequentially to preserve order
-         * TODO handle virtual
-         * ===========================================================================
+        /*
+        for non-virtual containers
+            - work only in current vpp, non-virtuals can only reference files in their own vpp
+            - find matching container-str2
+            - find matching primitive-file
+            - if vpp has multiple asm, every str2+file is referenced only once
+            - ignore root vpp files: non-virtuals can only reference str2 contents
+            - copy non-virtuals in foreign vpps as is, they are guaranteed to be unmodified
+        for virtual containers
+            - TODO
+            - every file in vpp root must be referenced
+            - find asm primitive everywhere for every separate file?
+            - figure out if file exists in several places but is deleted in changedVpp - is it fine to delete file which exists in other places?
+            - how to handle new files in root / in str2?
          */
         var upd = new List<Container>();
-        var foreignVpp = !vppName.Equals(containers.Key, StringComparison.OrdinalIgnoreCase);
+        var foreignVpp = !updatedVpp.Equals(containersInVpp.Key, StringComparison.OrdinalIgnoreCase);
         var realStrs = strs
-            .Where(x => x.Vpp.Equals(vppName, StringComparison.OrdinalIgnoreCase))
+            .Where(x => x.Vpp.Equals(updatedVpp, StringComparison.OrdinalIgnoreCase))
             .Where(x => x.Name != FakeStr2Root)
             .ToDictionary(x => x.Name[..^8], StringComparer.OrdinalIgnoreCase);
+        var localRootStr = strs
+            .Where(x => x.Vpp.Equals(updatedVpp, StringComparison.OrdinalIgnoreCase))
+            .Single(x => x.Name == FakeStr2Root);
 
-        foreach (var container in containers)
+        foreach (var container in containersInVpp)
         {
             if (container.IsVirtual)
             {
-                // TODO process virtual
-                StoreUpdate(container.Id, $"TODO work with virtual");
-                upd.Add(container);
+                upd.Add(UpdateVirtual(container, updatedVpp, foreignVpp, strs, all, localRootStr, token));
             }
             else
             {
                 if (foreignVpp)
                 {
-                    StoreUpdate(container.Id, $"Copying real container in foreign vpp");
+                    StoreUpdate(container.Id, $"Copied real container in foreign vpp");
                     upd.Add(container);
                     continue;
                 }
@@ -179,7 +126,7 @@ non-virtual containers
                 }
                 else
                 {
-                    upd.Add(UpdateNonVirtual(container, str, all, token));
+                    upd.Add(UpdateNonVirtualContainer(container, str, all, token));
                 }
             }
         }
@@ -188,7 +135,7 @@ non-virtual containers
         {
             if (realStrs.Any())
             {
-                var asmToAppend = containers.Select(x => x.Asm).Distinct().Order().ToList();
+                var asmToAppend = containersInVpp.Select(x => x.Asm).Distinct().Order().ToList();
                 if (asmToAppend.Count == 0)
                 {
                     throw new InvalidOperationException("Can't add new str2s: no asm files");
@@ -196,25 +143,176 @@ non-virtual containers
                 }
                 if (asmToAppend.Count > 1)
                 {
-                    StoreUpdate($"{vppName}/{containers.Key}", $"WARNING: Vpp has {asmToAppend.Count} ASM files, will add {realStrs.Count} new strs to first one. Fix result manually!");
+                    StoreUpdate($"{updatedVpp}/{containersInVpp.Key}", $"WARNING: Vpp has {asmToAppend.Count} ASM files, will add {realStrs.Count} new strs to first one. Fix result manually!");
                 }
 
                 var asm = asmToAppend.First();
-                StoreUpdate($"{vppName}/{containers.Key}", $"Add {realStrs.Count} new real strs as containers");
+                StoreUpdate($"{updatedVpp}/{containersInVpp.Key}", $"Add {realStrs.Count} new real strs as containers");
                 foreach (var x in realStrs)
                 {
-                    var c = AddNonVirtual(x.Value, all, asm, token);
-                    UpdateNonVirtual(c, x.Value, all, token);
+                    var c = AddNonVirtualStr(x.Value, all, asm, token);
+                    UpdateNonVirtualContainer(c, x.Value, all, token);
                     upd.Add(c);
                 }
             }
+        }
 
+        if (localRootStr.Files.Any())
+        {
+            //StoreUpdate($"{vppName}/{containers.Key}", $"Virtual TODO left {localRootStr.Files.Count} unreferenced files at root");
+            //var matchedFileIds = leftOuterJoin.Values.SelectMany(x => x.Select(y => y.Id)).ToHashSet();
+            //AddVirtualFiles(updContainer, addFiles, all, token);
         }
 
         return upd;
     }
 
-    private Container AddNonVirtual(Str str, IReadOnlyList<VppAndAsm> all, string asm, CancellationToken token)
+    private Container UpdateVirtual(Container container, string vppName, bool foreignVpp, IReadOnlyList<Str> strs, IReadOnlyList<VppAndAsm> all, Str localRootStr, CancellationToken token)
+    {
+        //StoreUpdate(container.Id, $"TODO work with virtual");
+        //return container;
+
+        var allStrFiles = strs.SelectMany(x => x.Files).ToList();
+
+
+        var leftOuterJoin = container.Primitives
+            .GroupJoin(allStrFiles, p => (AsmHelper.FixableVanillaNames.GetValueOrDefault(p.Name, p.Name).ToLowerInvariant()), f => (f.Name.ToLowerInvariant()), (p, fs) => (p, fs))
+            .ToDictionary(x => x.p, x => x.fs.ToList());
+
+        var updates = leftOuterJoin.Where(x => x.Value.Any()).ToList();
+        // let's just do nothing with delete list and hope that order will be correct after that
+        var deletePrimitives = leftOuterJoin.Where(x => !x.Value.Any()).Select(x => x.Key).ToList();
+
+        StoreUpdate(container.Id, $"Virtual Comparing {container.Primitives.Count} virtual primitives vs {allStrFiles.Count} files");
+        var updContainer = container with{Primitives = []};
+        UpdateVirtualPrimitives(updContainer, updates, token);
+        foreach (var f in updates.SelectMany(x => x.Value))
+        {
+            var x = localRootStr.Files.FirstOrDefault(x => x.Id == f.Id);
+            if (x != null)
+            {
+                localRootStr.Files.Remove(x);
+            }
+        }
+
+        if (deletePrimitives.Any())
+        {
+            foreach (var deletePrimitive in deletePrimitives)
+            {
+                if (AsmHelper.MissingVanillaPrimitives.Contains(deletePrimitive.Id))
+                {
+                    // don't delete known missing files, idk what will happen
+                    updContainer.Primitives.Add(deletePrimitive with{Parent = updContainer});
+                }
+            }
+
+            StoreUpdate(container.Id, $"Virtual Delete {deletePrimitives.Count} primitives:\n" + string.Join("\n", deletePrimitives));
+        }
+
+        if (container.Count > 0 && updContainer.Count == 0)
+        {
+            throw new InvalidOperationException($"WARNING: Virtual container is empty after updates! Original: {container}");
+            //StoreUpdate(updContainer.Id, "WARNING: Virtual container is empty after updates");
+        }
+
+        return updContainer;
+    }
+
+    private void UpdateVirtualPrimitives(Container container, List<KeyValuePair<Primitive, List<File>>> updates, CancellationToken token)
+    {
+        foreach (var (p, fs) in updates)
+        {
+            token.ThrowIfCancellationRequested();
+            if (!fs.Any())
+            {
+                throw new InvalidOperationException("Expected primitive-files collection");
+            }
+
+            var updPrimitive = p with{Parent = container};
+            if (fs.All(x => !x.Dirty))
+            {
+                // not our business lol
+                StoreUpdate(updPrimitive.Id, $"Virtual Copied without changes: all {fs.Count} update candidates for {p} are clean");
+                container.Primitives.Add(updPrimitive);
+                return;
+            }
+            StoreUpdate(updPrimitive.Id, $"Virtual Found {fs.Count} update candidates for {p}");
+            var dirty = fs.Where(x => x.Dirty).ToList();
+            if (dirty.Count != 1)
+            {
+                throw new InvalidOperationException($"Virtual Update collision: {dirty.Count} updates for {p}");
+            }
+
+            //============================================================================
+            // TODO compare matches, throw if different, etc?
+            //============================================================================
+
+            container.Primitives.Add(updPrimitive);
+        }
+    }
+
+    private void AddVirtualFiles(Container container, List<File> addFiles, IReadOnlyList<VppAndAsm> all, CancellationToken token)
+    {
+        //============================================================================
+        // TODO find anything that looks like new files, then what?
+        //============================================================================
+        StoreUpdate(container.Id, $"Virtual Add {addFiles.Count} new files");
+    }
+
+    private Container UpdateNonVirtualContainer(Container container, Str str, IReadOnlyList<VppAndAsm> all, CancellationToken token)
+    {
+        var leftOuterJoin = container.Primitives
+            .GroupJoin(str.Files, p => (p.Order, AsmHelper.FixableVanillaNames.GetValueOrDefault(p.Name, p.Name).ToLowerInvariant()), f => (f.FakeOrder, f.Name.ToLowerInvariant()), (p, fs) => (p, fs))
+            .Select(x => (x.p, x.fs.SingleOrDefault()))
+            .ToDictionary(x => x.p, x => x.Item2);
+        var matched = leftOuterJoin.Values.ToHashSet();
+
+        var updatePairs = leftOuterJoin.Where(x => x.Value is not null).ToList();
+        // let's just do nothing with delete list and hope that order will be correct after that
+        var deletePrimitives = leftOuterJoin.Where(x => x.Value is null).Select(x => x.Key).ToList();
+        var addFiles = str.Files.Where(x => !matched.Contains(x)).ToList();
+        StoreUpdate(container.Id, $"Comparing {container.Primitives.Count} non-virtual primitives vs {str.Files.Count} str2 in {str.Vpp}");
+
+        var updContainer = container with{Primitives = []};
+        UpdateNonVirtualPrimitives(updContainer, updatePairs, token);
+        AddNonVirtualFiles(updContainer, addFiles, all, token);
+
+        if (deletePrimitives.Any())
+        {
+            StoreUpdate(container.Id, $"Delete {deletePrimitives.Count} primitives:\n" + string.Join("\n", deletePrimitives));
+        }
+
+        if (updContainer.Offset != str.Offset)
+        {
+            if (str.Offset == -1)
+            {
+                throw new InvalidOperationException("Attempt to update container Offset to -1");
+            }
+
+            StoreUpdate(container.Id, "Update container Offset");
+            updContainer = updContainer with {Offset = str.Offset};
+        }
+
+        if (updContainer.CompressedSize != str.CompressedSize)
+        {
+            if (str.CompressedSize == -1)
+            {
+                throw new InvalidOperationException("Attempt to update container CompressedSize to -1");
+            }
+
+            StoreUpdate(container.Id, "Update container CompressedSize");
+            updContainer = updContainer with {CompressedSize = str.CompressedSize};
+        }
+
+        if (updContainer.Count == 0)
+        {
+            StoreUpdate(updContainer.Id, "WARNING: Container is empty after updates. Remove str2 instead?");
+        }
+
+        return updContainer;
+    }
+
+    private Container AddNonVirtualStr(Str str, IReadOnlyList<VppAndAsm> all, string asm, CancellationToken token)
     {
         // find anything that looks like new str
         // TODO ignore virtual when looking for a non-virtual file?
@@ -287,57 +385,7 @@ non-virtual containers
         return container;
     }
 
-    private Container UpdateNonVirtual(Container container, Str str, IReadOnlyList<VppAndAsm> all, CancellationToken token)
-    {
-        var leftOuterJoin = container.Primitives
-            .GroupJoin(str.Files, p => (p.Order, AsmHelper.FixableVanillaNames.GetValueOrDefault(p.Name, p.Name).ToLowerInvariant()), f => (f.FakeOrder, f.Name.ToLowerInvariant()), (p, fs) => (p, fs))
-            .Select(x => (x.p, x.fs.SingleOrDefault()))
-            .ToDictionary(x => x.p, x => x.Item2);
-        var matched = leftOuterJoin.Values.ToHashSet();
-
-        var updatePairs = leftOuterJoin.Where(x => x.Value is not null).ToList();
-        // let's just do nothing with delete list and hope that order will be correct after that
-        var deletePrimitives = leftOuterJoin.Where(x => x.Value is null).Select(x => x.Key).ToList();
-        var addFiles = str.Files.Where(x => !matched.Contains(x)).ToList();
-        StoreUpdate(container.Id, $"Comparing {container.Primitives.Count} non-virtual primitives vs {str.Files.Count} str2 in {str.Vpp}");
-
-        var updContainer = container with{Primitives = []};
-        UpdateNonVirtual(updContainer, updatePairs, token);
-        AddNonVirtual(updContainer, addFiles, all, token);
-
-        StoreUpdate(container.Id, $"Delete {deletePrimitives.Count} primitives:\n" + string.Join("\n", deletePrimitives));
-
-        if (updContainer.Offset != str.Offset)
-        {
-            if (str.Offset == -1)
-            {
-                throw new InvalidOperationException("Attempt to update container Offset to -1");
-            }
-
-            StoreUpdate(container.Id, "Update container Offset");
-            updContainer = updContainer with {Offset = str.Offset};
-        }
-
-        if (updContainer.CompressedSize != str.CompressedSize)
-        {
-            if (str.CompressedSize == -1)
-            {
-                throw new InvalidOperationException("Attempt to update container CompressedSize to -1");
-            }
-
-            StoreUpdate(container.Id, "Update container CompressedSize");
-            updContainer = updContainer with {CompressedSize = str.CompressedSize};
-        }
-
-        if (updContainer.Count == 0)
-        {
-            StoreUpdate(updContainer.Id, "WARNING: Container is empty after updates. Remove str2 instead?");
-        }
-
-        return updContainer;
-    }
-
-    private void UpdateNonVirtual(Container container, List<KeyValuePair<Primitive, File?>> updatePair, CancellationToken token)
+    private void UpdateNonVirtualPrimitives(Container container, List<KeyValuePair<Primitive, File?>> updatePair, CancellationToken token)
     {
         foreach (var (p, f) in updatePair)
         {
@@ -370,10 +418,9 @@ non-virtual containers
         }
     }
 
-    private void AddNonVirtual(Container container, List<File> addFiles, IReadOnlyList<VppAndAsm> all, CancellationToken token)
+    private void AddNonVirtualFiles(Container container, List<File> addFiles, IReadOnlyList<VppAndAsm> all, CancellationToken token)
     {
         // find anything that looks like new files
-        // TODO ignore virtual when looking for a non-virtual file?
         foreach (var file in addFiles)
         {
             token.ThrowIfCancellationRequested();
@@ -613,31 +660,23 @@ non-virtual containers
                 yield return vppByName["terr01_l1.vpp_pc"];
                 yield return vppByName["terr01_precache.vpp_pc"];
                 yield return vppByName["effects.vpp_pc"];
-                yield return vppByName["dlc01_precache.vpp_pc"];
                 yield break;
             case "terr01_l1.vpp_pc":
                 yield return vppByName["terr01_l0.vpp_pc"];
                 yield return vppByName["terr01_precache.vpp_pc"];
                 yield return vppByName["effects.vpp_pc"];
-                yield return vppByName["dlc01_precache.vpp_pc"];
                 yield break;
             case "terr01_precache.vpp_pc":
                 yield return vppByName["terr01_l0.vpp_pc"];
                 yield return vppByName["terr01_l1.vpp_pc"];
                 yield return vppByName["effects.vpp_pc"];
-                yield return vppByName["dlc01_precache.vpp_pc"];
                 yield break;
             case "effects.vpp_pc":
                 yield return vppByName["terr01_l0.vpp_pc"];
                 yield return vppByName["terr01_l1.vpp_pc"];
                 yield return vppByName["terr01_precache.vpp_pc"];
-                yield return vppByName["dlc01_precache.vpp_pc"];
                 yield break;
             case "dlc01_precache.vpp_pc":
-                yield return vppByName["terr01_l0.vpp_pc"];
-                yield return vppByName["terr01_l1.vpp_pc"];
-                yield return vppByName["terr01_precache.vpp_pc"];
-                yield return vppByName["effects.vpp_pc"];
                 yield return vppByName["dlc01_l0.vpp_pc"];
                 yield break;
             case "dlc01_l0.vpp_pc":
@@ -709,6 +748,12 @@ non-virtual containers
             using var f = file.OpenRead();
             yield return asmReader.ReadJson(f, file.Name);
         }
+    }
+
+    private void StoreUpdate(string id, string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(storedVppName);
+        archiverState.StoreUpdate(storedVppName, id, text);
     }
 }
 
