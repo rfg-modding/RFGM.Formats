@@ -227,6 +227,25 @@ namespace RFGM.Formats.Streams
             stream.WriteInt16((short)value.Length);
             stream.WriteAsciiString(value);
         }
+        
+        //Read bytes into string until a null terminator is reached up to a max of the provided length. Always reads length bytes regardless of whether the string uses them all.
+        //For fixed size char arrays stored in some RFG file formats;
+        public static string ReadSizedString(this Stream stream, int length)
+        {
+            long startPos = stream.Position;
+            string str = string.Empty;
+            for (int j = 0; j < 24; j++)
+            {
+                char nextChar = stream.Peek<char>();
+                if (nextChar == '\0')
+                    break;
+            
+                str += stream.ReadChar8();
+            }
+            stream.Seek(startPos + length, SeekOrigin.Begin); //Always read length bytes
+
+            return str;
+        }
         #endregion
 
         #region Float helpers
@@ -570,6 +589,32 @@ namespace RFGM.Formats.Streams
                 }
             }
 
+            return strings;
+        }
+        
+        //Used to match up the texture name string to with a TextureDesc on rfg materials
+        public static List<(string, long)> ReadSizedStringListWithOffsets(this Stream stream, long sizeBytes)
+        {
+            List<(string, long)> strings = new();
+            if (sizeBytes < 0)
+                return strings;
+            
+            long startPos = stream.Position;
+            while (stream.Position - startPos < sizeBytes)
+            {
+                long stringOffset = stream.Position - startPos;
+                strings.Add((stream.ReadAsciiNullTerminatedString(), stringOffset));
+
+                //Skip extra null terminators that are sometimes present in these lists in RFG formats
+                while (stream.Position - startPos < sizeBytes)
+                {
+                    if (stream.Peek<char>() == '\0')
+                        stream.Skip(1);
+                    else
+                        break;
+                }
+            }
+            
             return strings;
         }
 

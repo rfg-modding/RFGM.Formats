@@ -16,9 +16,17 @@ public struct Subpiece
     public byte ShapeType;
     public byte NumLinks;
     public byte Flags;
+
+    //Note: These aren't loaded in Read() since they are found later in the file
+    public List<ushort> Links = new();
     
     private const long SizeInFile = 64;
 
+    public Subpiece()
+    {
+        
+    }
+    
     public void Read(Stream stream)
     {
 #if DEBUG

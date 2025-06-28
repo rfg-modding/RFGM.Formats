@@ -1,13 +1,14 @@
 using RFGM.Formats.Hashes;
+using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Streams;
 
-namespace RFGM.Formats.Meshes.Shared;
+namespace RFGM.Formats.Materials;
 
 public class RfgMaterial
 {
     public uint ShaderHandle;
     public uint NameChecksum;
-    public uint MaterialFlags;
+    public RfgMaterialFlags MaterialFlags;
     public ushort NumTextures;
     public byte NumConstants;
     public byte MaxConstants;
@@ -20,6 +21,7 @@ public class RfgMaterial
     public List<MaterialConstant> Constants = new();
 
     public string Name => HashDictionary.FindOriginString(NameChecksum) ?? "Unknown";
+    public string ShaderName => HashDictionary.FindOriginString(ShaderHandle) ?? "Unknown";
     public IEnumerable<string> ConstantNames => ConstantNameChecksums.Select(hash => HashDictionary.FindOriginString(hash) ?? "Unknown");
 
     public void Read(Stream stream)
@@ -29,7 +31,7 @@ public class RfgMaterial
         
         ShaderHandle = stream.ReadUInt32();
         NameChecksum = stream.ReadUInt32();
-        MaterialFlags = stream.ReadUInt32();
+        MaterialFlags = (RfgMaterialFlags)stream.ReadUInt32();
         NumTextures = stream.ReadUInt16();
         NumConstants = stream.ReadUInt8();
         MaxConstants = stream.ReadUInt8();

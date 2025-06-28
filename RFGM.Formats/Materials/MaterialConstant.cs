@@ -1,6 +1,6 @@
 using RFGM.Formats.Streams;
 
-namespace RFGM.Formats.Meshes.Shared;
+namespace RFGM.Formats.Materials;
 
 public struct MaterialConstant
 {

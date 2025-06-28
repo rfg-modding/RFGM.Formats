@@ -5,8 +5,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <Version>1.2.0</Version>
+        <Version>1.7.0</Version>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <AssemblyVersion>1.7.0</AssemblyVersion>
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,6 +18,15 @@
       <PackageReference Include="Silk.NET.DXGI" Version="2.22.0" />
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
       <PackageReference Include="TestableIO.System.IO.Abstractions" Version="21.2.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="..\LICENSE">
+        <Link>LICENSE</Link>
+      </Content>
+      <Content Include="..\README.md">
+        <Link>README.md</Link>
+      </Content>
     </ItemGroup>
 
 </Project>

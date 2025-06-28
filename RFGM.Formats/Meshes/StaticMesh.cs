@@ -1,11 +1,14 @@
+using RFGM.Formats.Materials;
 using RFGM.Formats.Meshes.Shared;
 using RFGM.Formats.Streams;
 
 namespace RFGM.Formats.Meshes;
 
 //RFGR static mesh format. Extension: csmesh_pc|gsmesh_pc
-public class StaticMesh
+public class StaticMesh(string filename)
 {
+    public string Filename => filename;
+    
     public StaticMeshHeader Header;
     public MeshConfig Config = new();
     public List<uint> MaterialOffsets = new();
